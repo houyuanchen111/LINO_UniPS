@@ -46,14 +46,6 @@ conda activate LiNo
 pip install -r requirements.txt
 ```
 
-### 🔧 Downloading Checkpoint
-Run the script below to download the required model weights.
-
-```bash
-python cache_weight.py
-```
-This script downloads the pre-trained weights for both our LiNo-UniPS and [Hi3DGen](https://stable-x.github.io/Hi3DGen/) models. [Hi3DGen](https://stable-x.github.io/Hi3DGen/) is utilized as a downstream application of LiNo-UniPS.
-
 ### 📝 Dataset Preparation
 Download the following benchmarks for evaluate our LiNO-UniPS.
 * [DiLiGenT](https://drive.google.com/open?id=1EgC3x8daOWL4uQmc6c4nXVe4mdAMJVfg): A widely-used benchmark for photometric stereo, consisting of 10 real-world objects with diverse shapes and materials under precisely calibrated directional lighting.
@@ -75,7 +67,7 @@ After downloading, place them under `data/` as the folloing directory tree.
 		...
 ```
 ### 🧑‍🏫 Evaluating on Benchmarks 
-To evaluate the performance of LiNO-UniPS on the DiLiGenT, LUCES, and DiLiGenT10² benchmarks, run the corresponding scripts below.
+To evaluate the performance of LiNO-UniPS on the DiLiGenT, LUCES, and DiLiGenT10² benchmarks, run the corresponding scripts below. The pretrained model weights will be downloaded automatically on the first run of `eval.py`.
 ```bash
 # DiLiGenT
 python eval.py --task_name DiLiGenT --data_root data/DiLiGenT/ --num_images 16 

@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from src.models import LiNo_UniPS
 from pytorch_lightning import seed_everything 
 import argparse
-
+import torch
 def predict_normal(data_root: list,numberofinput: int):
     test_dataset = TestData([data_root],numberofinput)
     test_loader = DataLoader(test_dataset, batch_size=1)
@@ -19,11 +19,6 @@ if __name__ == "__main__":
         type=str, 
         default="DiLiGenT", 
         help="Name of the task"
-    )
-    parser.add_argument(
-        "--ckpt_path", 
-        type=str, 
-        default="weights/lino/lino.pth",
     )
     parser.add_argument(
         "--data_root", 
@@ -45,9 +40,11 @@ if __name__ == "__main__":
 
     
     args = parser.parse_args()
-
-    
     seed_everything(seed=args.seed, workers=True)
-    lino = LiNo_UniPS(task_name=args.task_name)
-    lino.from_pretrained(args.ckpt_path)
+    lino = torch.hub.load(
+            "houyuanchen111/LINO_UniPS",
+            "lino_unips",
+            pretrained=True,
+            task_name=args.task_name 
+        )
     predict_normal(args.data_root, args.num_images)

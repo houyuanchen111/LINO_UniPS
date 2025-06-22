@@ -1,8 +1,5 @@
 import os
 from huggingface_hub import snapshot_download
-
-
-
 def cache_weights(weights_dir: str) -> dict:
     os.makedirs(weights_dir, exist_ok=True)
     model_ids = [

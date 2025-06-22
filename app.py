@@ -284,7 +284,6 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
 if __name__ == "__main__":
     # Download and cache the weights
     cache_weights(WEIGHTS_DIR)
-
     hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1")
     hi3dgen_pipeline.cuda()
     lino = LiNo_UniPS()
