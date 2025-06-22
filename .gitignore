@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.vscode/*
+*.sh
+output/*/
+weights/*/
+figures/*git
+*.csv
+demo_tmp
