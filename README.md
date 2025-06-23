@@ -26,7 +26,7 @@ Hong Li\*, Houyuan Chen\*
 
 # 📊 Overview
 
-`LiNo-UniPS` is a method for `Univeral Photometric Stereo (PS)`. It predicts the normal map from a given set of images. Key features include:
+`LINO-UniPS` is a method for `Univeral Photometric Stereo (PS)`. It predicts the normal map from a given set of images. Key features include:
 * **Light-Agnostic:** Does not require specific lighting parameters as input.
 * **Arbitrary-Resolution:** Supports inputs of any resolution.
 * **Mask-Free:** Also supports mask-free scene normal reconstruction.
@@ -41,8 +41,8 @@ Hong Li\*, Houyuan Chen\*
 ```bash
 git clone https://github.com/houyuanchen111/lino.git
 cd lino
-conda create -n LiNo python=3.10
-conda activate LiNo
+conda create -n LINO python=3.10
+conda activate LINO
 pip install -r requirements.txt
 ```
 
@@ -111,11 +111,11 @@ The performance of our released model exceeds the results originally reported in
             <td>4.97</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Paper)</td>
+            <td>LINO-UniPS (Paper)</td>
             <td>4.94</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Release,K=96)</td>
+            <td>LINO-UniPS (Release,K=96)</td>
             <td><strong>4.74</strong></td>
           </tr>
         </tbody>
@@ -144,11 +144,11 @@ The performance of our released model exceeds the results originally reported in
             <td>11.10</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Paper)</td>
+            <td>LINO-UniPS (Paper)</td>
             <td>10.69</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Release,K=32)</td>
+            <td>LINO-UniPS (Release,K=32)</td>
             <td><strong>9.47</strong></td>
           </tr>
         </tbody>
@@ -177,11 +177,11 @@ The performance of our released model exceeds the results originally reported in
             <td>13.20</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Paper)</td>
+            <td>LINO-UniPS (Paper)</td>
             <td>12.21</td>
           </tr>
 		  <tr>
-            <td>LiNo-UniPS (Release,K=32)</td>
+            <td>LINO-UniPS (Release,K=32)</td>
      		<td><strong>10.84</strong></td>
           </tr>
         </tbody>
@@ -192,7 +192,7 @@ The performance of our released model exceeds the results originally reported in
 
 ### 🧑🏼‍🏫 Evaluating on Real-World Data (In-the-Wild)
 
-LiNo-UniPS also demonstrates robust performance on multi-light images captured in-the-wild. In the `data/Real_data/` directory, we provide two real-world scenes captured using a unique two-iPhone setup, where one device was used for recording and the other as a movable light source.
+LINO-UniPS also demonstrates robust performance on multi-light images captured in-the-wild. In the `data/Real_data/` directory, we provide two real-world scenes captured using a unique two-iPhone setup, where one device was used for recording and the other as a movable light source.
 
 For more real-world data captured by camera, you can download from [UniPS](https://satoshi-ikehata.github.io/cvpr2022/univps_cvpr2022.html), [SDM-UniPS](https://www.dropbox.com/scl/fo/fln61xs3xkpeni0mjtzds/ABAhepegwuhB8XGgWf_j5GY?rlkey=558iqt936084b8higxtnyz225&e=1&dl=0). 
 
