@@ -8,3 +8,4 @@ weights/*/
 figures/*git
 *.csv
 demo_tmp
+demo/basket
