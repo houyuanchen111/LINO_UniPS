@@ -385,7 +385,7 @@ if __name__ == "__main__":
     hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1")
     hi3dgen_pipeline.cuda()    
     # predictor = torch.hub.load(local_file_path="/share/project/cwm/hong.li/code/unips/LINO_UniPS/weights/lino/lino.pth")
-    predictor = torch.hub.load("houyuanchen111/LINO_UniPS","LINO", local_file_path="/share/project/cwm/hong.li/code/unips/LINO_UniPS/weights/lino/lino.pth")
+    predictor = torch.hub.load("Luh1124/LINO_UniPS","LINO", local_file_path="/share/project/cwm/hong.li/code/unips/LINO_UniPS/weights/lino/lino.pth")
     demo.launch(share=False, server_name="0.0.0.0")
 
 
