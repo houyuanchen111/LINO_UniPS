@@ -150,21 +150,21 @@ class LiNo_UniPS(pl.LightningModule):
     def predict_step(self,batch):
         roi = batch.get("roi",None)
         nml_predict = self.model_step(batch)
-        roi = roi[0].cpu().numpy()
+        roi = roi[0].int().cpu().numpy()
         h_ = roi[0] 
         w_ = roi[1] 
         r_s = roi[2]
         r_e = roi[3]
         c_s = roi[4]
         c_e = roi[5]
-        nml_predict = nml_predict.squeeze().permute(1,2,0).cpu().numpy()
+        nml_predict = nml_predict.squeeze().permute(1,2,0).float().cpu().numpy()
         nml_predict = cv2.resize(nml_predict, dsize=(c_e-c_s, r_e-r_s), interpolation=cv2.INTER_AREA)
         nml_predict = np.divide(nml_predict, np.linalg.norm(nml_predict, axis=2, keepdims=True) + 1.0e-12)
         mask = np.float32(np.abs(1 - np.sqrt(np.sum(nml_predict * nml_predict, axis=2))) < 0.5)
         nml_predict = nml_predict * mask[:, :, np.newaxis] 
         nout = np.zeros((h_, w_, 3), np.float32)
         nout[r_s:r_e, c_s:c_e,:] = nml_predict
-        mask = batch["mask_original"].squeeze().cpu().numpy()[:,:,None]
+        mask = batch["mask_original"].squeeze().float().cpu().numpy()[:,:,None]
 
         return nout*mask
     def model_step(self,batch):
@@ -210,7 +210,7 @@ class LiNo_UniPS(pl.LightningModule):
             W = decoder_imgsize[1]     
             nout = torch.zeros(B, H * W, 3).to(I.device)
             f_scale = decoder_resolution//canonical_resolution 
-            smoothing = gauss_filter.gauss_filter(glc.shape[1], 10 * f_scale+1, 1).to(glc.device)
+            smoothing = gauss_filter.gauss_filter(glc.shape[1], 10 * f_scale+1, 1).to(glc.device, dtype=glc.dtype)
             chunk_size = 16
             processed_chunks = []
             for glc_chunk in torch.split(glc, chunk_size, dim=0):
@@ -220,8 +220,8 @@ class LiNo_UniPS(pl.LightningModule):
             del M
             _, _, H, W = I_dec.shape         
             p = 0
-            nout = torch.zeros(B, H * W, 3).to(I.device)
-            conf_out = torch.zeros(B, H * W, 1).to(I.device)
+            nout = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
+            conf_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
             for b in range(B):
                 target = range(p, p+nImgArray[b])
                 p = p+nImgArray[b]
@@ -243,7 +243,7 @@ class LiNo_UniPS(pl.LightningModule):
                     x_n, _, _, conf = self.regressor(x, len(ids)) 
                     x_n = F.normalize(x_n, p=2, dim=-1)
                     nout[b, ids, :] = x_n[b,:,:]
-                    conf_out[b, ids, :] = conf[b,:,:].to(torch.float32)
+                    conf_out[b, ids, :] = conf[b,:,:].to(I.dtype)
                 nout = nout.reshape(B,H,W,3).permute(0,3,1,2)
                 conf_out = conf_out.reshape(B,H,W,1).permute(0,3,1,2)
                 patches_nml.append(nout)
@@ -251,3 +251,7 @@ class LiNo_UniPS(pl.LightningModule):
         patches_nml = torch.stack(patches_nml, dim=1)
         merged_tensor_nml = decompose_tensors.merge_tensor_spatial(patches_nml.permute(1,0,2,3,4), method='tile_stride')
         return merged_tensor_nml
+
+    def forward(self, batch):
+        return self.predict_step(batch=batch)
+        

@@ -77,7 +77,7 @@ class DemoData(Dataset):
         return 1
     def load(self,input_images_list,mask):
         if mask is None:
-            mask = np.ones_like(input_images_list[0][0])
+            mask = np.ones_like(np.array(input_images_list[0][0]))
         else:
             mask = np.array(mask)
         mask = mask[:,:,0]
