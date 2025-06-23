@@ -135,19 +135,21 @@ def generate_3d(image, seed=-1,
     return mesh_path, mesh_path
 # @spaces.GPU
 def predict_normal(input_images,input_mask):
-    test_dataset = DemoData(input_imgs_list=input_images,input_mask=input_mask)
-    test_data = test_dataset[0]
+    # test_dataset = DemoData(input_imgs_list=input_images,input_mask=input_mask)
+    # test_data = test_dataset.__getitem__()
+
+    # nml_predict = lino(test_data)
 
     # test_loader = DataLoader(test_dataset, batch_size=1)
 
     # trainer = pl.Trainer(accelerator="auto", devices=1,precision="bf16-mixed")
     # nml_predict = trainer.predict(model=lino, dataloaders=test_loader)
-    nml_predict = lino(test_data)
+    nml_predict = predictor.predict(input_images, input_mask)
 
 
-    nml_output = 0.5 * nml_predict[0] + 0.5
-    
-    return ((nml_output*255.0).astype(np.uint8), nml_predict[0])
+    nml_output = 0.5 * nml_predict + 0.5
+
+    return ((nml_output*255.0).astype(np.uint8), nml_predict)
 
 def convert_mesh(mesh_path, export_format):
     """Download the mesh in the selected format."""
@@ -381,9 +383,8 @@ if __name__ == "__main__":
     cache_weights(WEIGHTS_DIR)
 
     hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1")
-    hi3dgen_pipeline.cuda()
-    lino = LiNo_UniPS()
-    lino.from_pretrained("weights/lino/lino.pth")
+    hi3dgen_pipeline.cuda()    
+    predictor = torch.hub.load("houyuanchen111/LINO_UniPS","LINO", local_file_path="weights/lino/lino.pth")
     demo.launch(share=False, server_name="0.0.0.0")
 
 
