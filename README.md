@@ -181,8 +181,8 @@ The performance of our released model exceeds the results originally reported in
             <td>12.21</td>
           </tr>
 		  <tr>
-            <td>LINO-UniPS (Release,K=32)</td>
-     		<td><strong>10.84</strong></td>
+            <td>LINO-UniPS (Release,K=64)</td>
+     		<td><strong>11.12</strong></td>
           </tr>
         </tbody>
       </table>
