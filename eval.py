@@ -1,13 +1,10 @@
-from src.data import TestData
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-from src.models import LiNo_UniPS
 from pytorch_lightning import seed_everything 
 import argparse
 import torch
-def predict_normal(data_root: list,numberofinput: int):
-    test_dataset = TestData([data_root],numberofinput)
-    test_loader = DataLoader(test_dataset, batch_size=1)
+def predict_normal():
+    test_loader = DataLoader(testdata, batch_size=1)
     trainer = pl.Trainer(accelerator="auto", devices=1,precision="bf16-mixed")
     trainer.test(model=lino, dataloaders=test_loader)
 
@@ -47,4 +44,10 @@ if __name__ == "__main__":
             pretrained=True,
             task_name=args.task_name 
         )
-    predict_normal(args.data_root, args.num_images)
+    testdata = torch.hub.load(
+            "houyuanchen111/LINO_UniPS",
+            "load_test_data",
+            data_root=[args.data_root],
+            numofimages=args.num_images
+        )
+    predict_normal()
