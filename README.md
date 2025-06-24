@@ -199,17 +199,17 @@ After downloading, please place the extracted folders under the `data/Real_data/
 
 ```bash
 |-- data
-	|-- Real_data
-	A 
-        ├── mask.png (optional)
-        ├── [Prefix (default: "L")] imgfile1
-        ├── [Prefix (default: "L")] imgfile2
-        └── ...
-        B 
-        ├── mask.png (optional)
-        ├── [Prefix (default: "L")] imgfile1
-        ├── [Prefix (default: "L")] imgfile2
-        └── ...
+|-- Real_data
+A 
+├── mask.png (optional)
+├── [Prefix (default: "L")] imgfile1
+├── [Prefix (default: "L")] imgfile2
+└── ...
+B 
+├── mask.png (optional)
+├── [Prefix (default: "L")] imgfile1
+├── [Prefix (default: "L")] imgfile2
+└── ...
 ```
 
 Then, run the following scripts:
