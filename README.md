@@ -3,7 +3,7 @@
 
 <a href="https://houyuanchen111.github.io/lino.github.io/"><img src="https://img.shields.io/badge/%F0%9F%8F%A0%20Project%20Page-gray.svg"></a>
 <a href="https://arxiv.org/pdf/2506.18882"><img src="https://img.shields.io/badge/arXiv-2506.18882-b31b1b.svg"></a>
-<a href="https://huggingface.co/houyuanchen/lino/tree/main"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model_Card-Huggingface-orange"></a>
+<a href="https://huggingface.co/houyuanchen/lino"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model_Card-Huggingface-orange"></a>
 <a href="https://huggingface.co/spaces/houyuanchen/lino"><img src="https://img.shields.io/badge/%F0%9F%9A%80%20Gradio%20Demo-Huggingface-orange"></a>
 
 
