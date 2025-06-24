@@ -299,6 +299,10 @@ For example:
 If you find this repository useful, please consider giving a star :star: and citation.
 
 ```
-@article{
+@article{li2025lightnormalsunifiedfeature,
+      title={Light of Normals: Unified Feature Representation for Universal Photometric Stereo}, 
+      author={Hong Li and Houyuan Chen and Chongjie Ye and Zhaoxi Chen and Bohan Li and Shaocong Xu and Xianda Guo and Xuhui Liu and Yikai Wang and Baochang Zhang and Satoshi Ikehata and Boxin Shi and Anyi Rao and Hao Zhao},
+      journal={arXiv preprint arXiv:2506.18882},
+      year={2025}
 }
 ```
