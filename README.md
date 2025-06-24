@@ -7,7 +7,7 @@
 <a href="https://huggingface.co/spaces/houyuanchen/lino"><img src="https://img.shields.io/badge/%F0%9F%9A%80%20Gradio%20Demo-Huggingface-orange"></a>
 
 
-[Hong Li](https://scholar.google.com/citations?user=5FBYzP8AAAAJ&hl=en)\*, Houyuan Chen[https://github.com/houyuanchen111]\*, [Chongjie Ye](https://github.com/hugoycj)$^\dagger$
+[Hong Li](https://scholar.google.com/citations?user=5FBYzP8AAAAJ&hl=en)\*, [Houyuan Chen](https://github.com/houyuanchen111)\*, [Chongjie Ye](https://github.com/hugoycj)$^\dagger$
 <br>
 [Zhaoxi Chen](https://frozenburning.github.io/), [Bohan Li](https://arlo0o.github.io/libohan.github.io/), [Shaocong Xu](https://daniellli.github.io/),[Xianda Guo](https://xiandaguo.net/)
 <br>
