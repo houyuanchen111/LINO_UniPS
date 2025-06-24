@@ -2,17 +2,18 @@
 <h1>Light of Normals: Unified Feature Representation for Universal Photometric Stereo</h1>
 
 <a href="https://houyuanchen111.github.io/lino.github.io/"><img src="https://img.shields.io/badge/%F0%9F%8F%A0%20Project%20Page-gray.svg"></a>
-<a href=""><img src="https://img.shields.io/badge/%F0%9F%93%84%20arXiv-2503.14489-B31B1B.svg"></a>
+<a href="https://arxiv.org/pdf/2506.18882"><img src="https://img.shields.io/badge/arXiv-2506.18882-b31b1b.svg"></a>
 <a href="https://huggingface.co/houyuanchen/lino/tree/main"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Model_Card-Huggingface-orange"></a>
 <a href="https://huggingface.co/spaces/houyuanchen/lino"><img src="https://img.shields.io/badge/%F0%9F%9A%80%20Gradio%20Demo-Huggingface-orange"></a>
 
 
-Hong Li\*, Houyuan Chen\*
+Hong Li\*, Houyuan Chen\*, [Chongjie Ye](https://github.com/hugoycj)$^\dagger$
 <br>
-[Chongjie Ye](https://github.com/hugoycj), [Zhaoxi Chen](https://frozenburning.github.io/), Bohan Li, [Shaocong Xu](https://daniellli.github.io/),[Xianda Guo](https://xiandaguo.net/)
+[Zhaoxi Chen](https://frozenburning.github.io/), Bohan Li, [Shaocong Xu](https://daniellli.github.io/),[Xianda Guo](https://xiandaguo.net/)
 <br>
-[Xuhui Liu](https://scholar.google.com.hk/citations?user=d4Dg1J4AAAAJ&hl=zh-CN), [Yikai Wang](https://scholar.google.com/citations?user=MnW5aegAAAAJ&hl=pl), [Baochang Zhang](https://scholar.google.com/citations?user=ImJz6MsAAAAJ&hl=zh-CN), [Satoshi Ikehata](https://satoshi-ikehata.github.io/), [Boxin Shi](https://scholar.google.com/citations?user=K1LjZxcAAAAJ&hl=en), [Anyi Rao](https://anyirao.com/), [Hao Zhao](https://scholar.google.com.hk/citations?user=ygQznUQAAAAJ&hl=en), 
+[Xuhui Liu](https://scholar.google.com.hk/citations?user=d4Dg1J4AAAAJ&hl=zh-CN), [Yikai Wang](https://scholar.google.com/citations?user=MnW5aegAAAAJ&hl=pl), [Baochang Zhang](https://scholar.google.com/citations?user=ImJz6MsAAAAJ&hl=zh-CN), [Satoshi Ikehata](https://satoshi-ikehata.github.io/), [Boxin Shi](https://scholar.google.com/citations?user=K1LjZxcAAAAJ&hl=en), [Anyi Rao](https://anyirao.com/), [Hao Zhao](https://scholar.google.com.hk/citations?user=ygQznUQAAAAJ&hl=en)$^\ddagger$ 
 <br>
+\* Equal contribution $^\dagger$ Part of project lead $^\ddagger$ Corresponding author
 <br>
 
 
@@ -285,12 +286,12 @@ For example:
 
 ```bash
 |-- data
-	|-- Real_data
-          Your_Object_Name 
-          ├── mask.png (optional)
-          ├── L_1.jpg
-          ├── L_2.jpg
-          └── ...
+  |-- Real_data
+    Your_Object_Name 
+    ├── mask.png (optional)
+    ├── L_1.jpg
+    ├── L_2.jpg
+    └── ...
 ```
  `mask.png` is optional. If needed, it can be generated using [RMBG-2.0](https://huggingface.co/spaces/briaai/BRIA-RMBG-2.0).
 
