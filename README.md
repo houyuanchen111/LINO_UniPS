@@ -55,15 +55,15 @@ Download the following benchmarks for evaluate our LiNO-UniPS.
 After downloading, place them under `data/` as the folloing directory tree.
 ```bash
 |-- data
-DiLiGenT 
-├── ballPNG
-└── ...
-LUCES 
-├── BALL
-└── ...
-DiLiGenT_100 
-├── BALL_ABS
-└── ...
+  DiLiGenT 
+  ├── ballPNG
+  └── ...
+  LUCES 
+  ├── BALL
+  └── ...
+  DiLiGenT_100 
+  ├── BALL_ABS
+  └── ...
 ```
 ### 🧑‍🏫 Evaluating on Benchmarks 
 To evaluate the performance of LiNO-UniPS on the DiLiGenT, LUCES, and DiLiGenT10² benchmarks, run the corresponding scripts below. The pretrained model weights will be downloaded automatically on the first run of `eval.py`.
