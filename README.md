@@ -55,7 +55,6 @@ Download the following benchmarks for evaluate our LiNO-UniPS.
 After downloading, place them under `data/` as the folloing directory tree.
 ```bash
 |-- data
-	|-- Real_data
 	DiLiGenT 
         ├── ballPNG
         └── ...
