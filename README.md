@@ -7,9 +7,9 @@
 <a href="https://huggingface.co/spaces/houyuanchen/lino"><img src="https://img.shields.io/badge/%F0%9F%9A%80%20Gradio%20Demo-Huggingface-orange"></a>
 
 
-Hong Li\*, Houyuan Chen\*, [Chongjie Ye](https://github.com/hugoycj)$^\dagger$
+[Hong Li](https://scholar.google.com/citations?user=5FBYzP8AAAAJ&hl=en)\*, Houyuan Chen[https://github.com/houyuanchen111]\*, [Chongjie Ye](https://github.com/hugoycj)$^\dagger$
 <br>
-[Zhaoxi Chen](https://frozenburning.github.io/), Bohan Li, [Shaocong Xu](https://daniellli.github.io/),[Xianda Guo](https://xiandaguo.net/)
+[Zhaoxi Chen](https://frozenburning.github.io/), [Bohan Li](https://arlo0o.github.io/libohan.github.io/), [Shaocong Xu](https://daniellli.github.io/),[Xianda Guo](https://xiandaguo.net/)
 <br>
 [Xuhui Liu](https://scholar.google.com.hk/citations?user=d4Dg1J4AAAAJ&hl=zh-CN), [Yikai Wang](https://scholar.google.com/citations?user=MnW5aegAAAAJ&hl=pl), [Baochang Zhang](https://scholar.google.com/citations?user=ImJz6MsAAAAJ&hl=zh-CN), [Satoshi Ikehata](https://satoshi-ikehata.github.io/), [Boxin Shi](https://scholar.google.com/citations?user=K1LjZxcAAAAJ&hl=en), [Anyi Rao](https://anyirao.com/), [Hao Zhao](https://scholar.google.com.hk/citations?user=ygQznUQAAAAJ&hl=en)$^\ddagger$ 
 <br>
