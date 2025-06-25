@@ -36,7 +36,7 @@
 
 - June 2025 - Release paper, project page, Hugging Face demo and model checkpoint. 
 
-# ✨ TODO List
+# 📝 TODO List
 
 - [x] ~~Release checkpoint and inference code.~~
 - [ ] Release `PS-Verse`, the training dataset.
