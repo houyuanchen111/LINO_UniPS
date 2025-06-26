@@ -225,15 +225,12 @@ Then, run the following scripts:
 
 python eval.py --task_name Real --data_root data/Real_data/ --num_images 12 
 ```
-OLAT results correspond to [issue #2](https://github.com/houyuanchen111/LINO_UniPS/issues/2). The data is sourced from the [OpenIllumination](https://oppo-us-research.github.io/OpenIllumination/), with a resolution of **3000x4096**.
-
 <table>
   <thead>
     <tr>
       <th colspan="2" style="text-align: center;">Captured by iPhone</th>
       <th colspan="2" style="text-align: center;">Captured by Camera (provided by  <a href="https://satoshi-ikehata.github.io/cvpr2022/univps_cvpr2022.html" target="_blank">UniPS</a>, 
   <a href="https://www.dropbox.com/scl/fo/fln61xs3xkpeni0mjtzds/ABAhepegwuhB8XGgWf_j5GY?rlkey=558iqt936084b8higxtnyz225&e=1&dl=0" target="_blank">SDM-UniPS</a>)</th>
-      <th colspan="2" style="text-align: center;">OLAT (<a href="https://oppo-us-research.github.io/OpenIllumination/" target="_blank">OpenIllumination</a>)</th>
     </tr>
   </thead>
   <tbody>
@@ -242,16 +239,12 @@ OLAT results correspond to [issue #2](https://github.com/houyuanchen111/LINO_Uni
       <td style="text-align: center;"><img src="figures/key_iphone.png" alt="Image 2" width="200"></td>
       <td style="text-align: center;"><img src="figures/cable_camera.JPG" alt="Image 3" width="200"></td>
       <td style="text-align: center;"><img src="figures/tengu_camera.jpg" alt="Image 4" width="200"></td>
-      <td style="text-align: center;"><img src="figures/olat_dolphin_d3.png" alt="Image 9" width="200"></td>
-      <td style="text-align: center;"><img src="figures/olat_pump_c4.png" alt="Image 10" width="200"></td>
     </tr>
     <tr>
       <td style="text-align: center;"><img src="figures/basket_iphone_nml_predict.png" alt="Image 5" width="200"></td>
       <td style="text-align: center;"><img src="figures/key_iphone_nml_predict.png" alt="Image 6" width="200"></td>
       <td style="text-align: center;"><img src="figures/cable_camera_nml_predict.png" alt="Image 7" width="200"></td>
       <td style="text-align: center;"><img src="figures/tengu_camera_nml_predict.png" alt="Image 8" width="200"></td>
-      <td style="text-align: center;"><img src="figures/olat_dolphin_d3_nml_predict.png" alt="Image 11" width="200"></td>
-      <td style="text-align: center;"><img src="figures/olat_pump_c4_nml_predict.png" alt="Image 12" width="200"></td>
     </tr>
   </tbody>
 </table>
