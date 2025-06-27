@@ -308,6 +308,32 @@ For example:
 ```
  `mask.png` is optional. If needed, it can be generated using [RMBG-2.0](https://huggingface.co/spaces/briaai/BRIA-RMBG-2.0).
 
+### 💟 Downstream application
+
+This is for [issue #3](https://github.com/houyuanchen111/LINO_UniPS/issues/3). The high-quality normals predicted by LINO-UniPS can be utilized as normal bridge for [Hi3DGen](https://github.com/Stable-X/Stable3DGen) to generate a high-quality mesh. Compared to vanilla Hi3DGen, the superior quality of the LINO-UniPS normals results in a generated mesh with substantially **higher fidelity** and **richer details**. For more results, please refer to the [Home page](https://houyuanchen111.github.io/lino.github.io/) and try it out at [Live Demo](https://huggingface.co/spaces/houyuanchen/lino).
+
+<table style="width:100%; border: none;">
+    <tr align="center">
+        <td><img src="figures/display.png" width="300" alt="Rgb"><br><b>RGB</b></td>
+        <td><img src="figures/nml_hi3dgen.png" width="300" alt="Stable Normal"><br><b>Hi3DGen</b></td>
+        <td><img src="figures/nml_lino.png" width="300" alt="LINO"><br><b>LINO-UniPS</b></td>
+    </tr>
+    <tr align="center">
+        <td>
+            <div style="line-height: 1.5;font-size: 14px;margin-bottom: 20px;">
+                Mesh 1: The result of vanilla Hi3DGen. Vertices: 216308, Faces: 432602 
+            </div>
+            <div style="line-height: 1.5;font-size: 14px;">
+                Mesh 2: The result of Hi3DGen using the normal of <b>LINO-UniPS</b>.
+               Vertices: <b>216308</b>, Faces: <b>432602</b>
+            </div>
+        </td>
+        <td><img src="figures/hi3dgen.jpg" width="300" alt="Mesh 1"><b>Mesh 1</b></td>
+        <td><img src="figures/lino_hi3dgen.jpg" width="300" alt="Mesh 2"><b>Mesh 2</b></td>
+    </tr>
+</table>
+
+
 # 🔖 Citing
 
 If you find this repository useful, please consider giving a star :star: and citation.
@@ -320,3 +346,5 @@ If you find this repository useful, please consider giving a star :star: and cit
       year={2025}
 }
 ```
+
+
