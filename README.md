@@ -325,7 +325,7 @@ This is for [issue #3](https://github.com/houyuanchen111/LINO_UniPS/issues/3). T
             </div>
             <div style="line-height: 1.5;font-size: 14px;">
                 Mesh 2: The result of Hi3DGen using the normal of <b>LINO-UniPS</b>.
-               Vertices: <b>216308</b>, Faces: <b>432602</b>
+               Vertices: <b>362438</b>, Faces: <b>725006</b>
             </div>
         </td>
         <td><img src="figures/hi3dgen.jpg" width="300" alt="Mesh 1"><b>Mesh 1</b></td>
