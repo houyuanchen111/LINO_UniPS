@@ -33,14 +33,14 @@
 * **Mask-Free:** Also supports mask-free scene normal reconstruction.
 
 # ✨ News
-
+- August 2025 - Release training code.
 - June 2025 - Release paper, project page, Hugging Face demo and model checkpoint. 
 
 # 📝 TODO List
 
 - [x] ~~Release checkpoint and inference code.~~
 - [ ] Release `PS-Verse`, the training dataset.
-- [ ] Release training code.
+- [x] ~~Release training code.~~
 - [ ] Adding support for PBR material estimation.
 # 🔛 Get Started 
 ### 💾 Installation
