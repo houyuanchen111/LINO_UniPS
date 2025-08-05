@@ -34,7 +34,6 @@ class TrainData(Dataset):
         self.numMinImages = numMinImages
         self.imgBufferSize = imgBufferSize
         self.low_normal = low_normal
-        self.hdri_root = None # root of hdri
         self.hdri_preprocessor = HDRI_Preprocessor(envmap_h=256, envmap_w=512)
         self.objlist = []
         with os.scandir(self.data_root) as entries:
@@ -61,37 +60,29 @@ class TrainData(Dataset):
         self.objlist = [objlist[i] for i in chosen_indices]
         print(f"NewData mode={mode}, => {len(self.objlist)} items selected.")
 
-    def horizontal_flip(self,I, N, M, baseColor=None, metal=None, roughness=None): 
+    def horizontal_flip(self,I, N, M): 
         I = I[:, ::-1, :, :]
         N = N[:, ::-1, :]
         N[:, :, 0] *= -1
         M = M[:, ::-1, :]
-        baseColor = baseColor[:, ::-1, :]
-        metal = metal[:, ::-1, :]
-        roughness = roughness[:, ::-1, :]
-        return I.copy(), N.copy(), M.copy(), baseColor.copy(), metal.copy(), roughness.copy()
-
-    def vertical_flip(self,I, N, M, baseColor=None, metal=None, roughness=None):
+        return I.copy(), N.copy(), M.copy()
+        
+    def vertical_flip(self,I, N, M):
         I = I[::-1, :, :, :]
         N = N[::-1, :, :]
         N[:, :, 1] *= -1
         M = M[::-1, :, :]
-        baseColor = baseColor[::-1, :, :]
-        metal = metal[::-1, :, :]
-        roughness = roughness[::-1, :, :]
-        return I.copy(), N.copy(), M.copy(), baseColor.copy(), metal.copy(), roughness.copy()
-
-    def rotate(self,I, N, M, baseColor=None, metal=None, roughness=None):
+        return I.copy(), N.copy(), M.copy()
+    def rotate(self,I, N, M):
+       
         I = I.transpose(1, 0, 2, 3)
         N = N.transpose(1, 0, 2)
         N = N[:, :, [1,0,2]]
         N[:, :, 0] *= -1
         N[:, :, 1] *= -1
         M = M.transpose(1, 0, 2)
-        baseColor = baseColor.transpose(1, 0, 2)
-        metal = metal.transpose(1, 0, 2)
-        roughness = roughness.transpose(1, 0, 2)
-        return I.copy(), N.copy(), M.copy(), baseColor.copy(), metal.copy(), roughness.copy()
+        return I.copy(), N.copy(), M.copy()
+    
 
     def color_swap(self,I):
         for k in range(I.shape[3]):
