@@ -169,13 +169,19 @@ class Net(nn.Module):
 class SDMUPSModule(pl.lightningModule):
     def __init__(
         self,
-        net: torch.nn.Module ,
-        optimizer: torch.optim.Optimizer ,
-        scheduler: torch.optim.lr_scheduler,
+        net: torch.nn.Module,
+        optimizer_class,
+        scheduler_class,
         compile: bool,
         canonical_resolution: int,
         sample_num: int,
         save_dir: str,
+        learning_rate: float = 1e-4,
+        weight_decay: float = 0.05,
+        max_epochs: int = 100,
+        min_lr: float = 1e-6,
+        step_size: int = 10,
+        gamma: float = 0.8,
     ) -> None:
         super().__init__()
  
@@ -184,6 +190,14 @@ class SDMUPSModule(pl.lightningModule):
         self.canonical_resolution = canonical_resolution
         self.net = net
         self.sample_num = sample_num
+        self.optimizer_class = optimizer_class
+        self.scheduler_class = scheduler_class
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.max_epochs = max_epochs
+        self.min_lr = min_lr
+        self.step_size = step_size
+        self.gamma = gamma
         # metric
         self.criterion = torch.nn.MSELoss(reduction='mean') 
         self.save_dir = save_dir
@@ -231,16 +245,30 @@ class SDMUPSModule(pl.lightningModule):
         assert len(metric_dict) == 7, "metric_dict should have 7 keys"
         mse, loss = metric_dict['mse'], metric_dict['loss']
         self.loss = loss
-        # self.train_loss(loss)
         self.log("val/loss", self.loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("val/mse_loss", mse, on_step=False, on_epoch=True, prog_bar=True)
         return loss
     
     def configure_optimizers(self) -> Dict[str, Any]:
        
-        optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
-        if self.hparams.scheduler is not None:
-            scheduler = self.hparams.scheduler(optimizer=optimizer)
+        optimizer = self.optimizer_class(
+            self.trainer.model.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay
+        )
+        if self.scheduler_class is not None:
+            if self.scheduler_class.__name__ == 'StepLR':
+                scheduler = self.scheduler_class(
+                    optimizer=optimizer,
+                    step_size=self.step_size,
+                    gamma=self.gamma
+                )
+            else:
+                scheduler = self.scheduler_class(
+                    optimizer=optimizer,
+                    T_max=self.max_epochs,
+                    eta_min=self.min_lr
+                )
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {
