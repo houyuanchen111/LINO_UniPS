@@ -25,15 +25,6 @@ logger = logging.getLogger(__name__)
 _RESNET_MEAN = [0.485, 0.456, 0.406]
 _RESNET_STD = [0.229, 0.224, 0.225]
 
-
-
-
-
-
-
-
-
-
 class Aggregator(nn.Module):
     """
     The Aggregator applies alternating-attention over input frames,
@@ -215,17 +206,7 @@ class Aggregator(nn.Module):
         images: torch.Tensor,
     ) -> Tuple[List[torch.Tensor], int]:
         
-        B, S, C_in, H, W = images.shape
-
-        
-        
-        
-        
-
-        
-        
-
-        
+        B, S, C_in, H, W = images.shape        
         images = images.view(B * S, C_in, H, W)
         patch_tokens = self.patch_embed(images)
 

@@ -468,13 +468,7 @@ class ImageFeatureFusion(nn.Module):
         out = self._apply_pos_embed(out, 256, 256).to(torch.bfloat16) # [B, 256, 64, 64]
         
         return out
-    
-    
-
-
-
-
-    
+        
 class ScaleInvariantSpatialLightImageEncoder(nn.Module): 
     def __init__(self, input_nc, depth=4, use_efficient_attention=False):
         super(ScaleInvariantSpatialLightImageEncoder, self).__init__()
@@ -608,3 +602,97 @@ class PredictionHead(nn.Module):
         else:
             confidence = torch.zeros_like([ret.shape[0], 1])
         return ret, torch.sigmoid(confidence) 
+
+
+class EnvLightHead(nn.Module):
+    def __init__(self, input_feature_dim: int = 1536, output_dim_per_item: int = 768):
+        super().__init__()
+        self.input_feature_dim = input_feature_dim
+        self.output_dim_per_item = output_dim_per_item
+        self.feature_aggregator = nn.Sequential(
+            nn.Linear(1536, 384),
+            nn.ReLU(),
+        )
+        self.predictor = nn.Sequential(
+            nn.Linear(1536, 768),
+            nn.ReLU(),
+        )
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.feature_aggregator(x) # B f split+down_sample(5) num_block 384
+        x = rearrange(x, 'B f split_down num_block c -> B f split_down (num_block c)')
+        x = torch.mean(x, dim=2) # Average Pooling
+        return self.predictor(x)
+
+class PointLightAlign(nn.Module):    
+    def __init__(self, input_feature_dim: int = 1536, output_dim_per_item: int = 12):
+        super().__init__()
+        self.input_feature_dim = input_feature_dim
+        self.output_dim_per_item = output_dim_per_item
+        self.feature_aggregator = nn.Sequential(
+            nn.Linear(1536, 768),
+            nn.ReLU(),
+            nn.Linear(768, 384),
+        )
+        self.predictor = nn.Sequential(
+            nn.Linear(1536, 384),
+            nn.ReLU(),
+        )
+        self.gt_point_projector = nn.Sequential(
+            nn.Linear(12, 64),
+            nn.ReLU(),
+            nn.Linear(64, 384),
+        )
+
+
+    def forward(self, x: torch.Tensor,gt) -> torch.Tensor:
+        x = self.feature_aggregator(x) # f split+down_sample(5) num_block 384
+        x = rearrange(x, 'B f split_down num_block c -> B f split_down (num_block c)')
+        x = torch.mean(x, dim=2) # Average Pooling
+        pred_output = self.predictor(x) # 假设形状是 [B, f, split_down, 12]
+        gt_projector = self.gt_point_projector(gt)
+        pred_output = F.normalize(pred_output, dim=-1) # 归一化
+        gt_projector = F.normalize(gt_projector, dim=-1) # 归一化
+        return 1 - F.cosine_similarity(pred_output, gt_projector, dim=-1).mean()
+
+class AreaAlign(nn.Module):    
+    def __init__(self, input_feature_dim: int = 1536, output_dim_per_item: int = 12):
+        super().__init__()
+        self.input_feature_dim = input_feature_dim
+        self.output_dim_per_item = output_dim_per_item
+        self.feature_aggregator = nn.Sequential(
+            nn.Linear(1536, 768),
+            nn.ReLU(),
+            nn.Linear(768, 384),
+        )
+        self.predictor = nn.Sequential(
+            nn.Linear(1536, 384),
+            nn.ReLU(),
+        )
+        self.gt_area_projector = nn.Sequential(
+            nn.Linear(5, 64),
+            nn.ReLU(),
+            nn.Linear(64, 384),
+        )
+
+
+    def forward(self, x: torch.Tensor,gt) -> torch.Tensor:
+        x = self.feature_aggregator(x) # f split+down_sample(5) num_block 384
+        x = rearrange(x, 'B f split_down num_block c -> B f split_down (num_block c)')
+        x = torch.mean(x, dim=2) # Average Pooling
+        pred_output = self.predictor(x) # 假设形状是 [B, f, split_down, 12]
+        gt_projector = self.gt_area_projector(gt)
+        pred_output = F.normalize(pred_output, dim=-1) # 归一化
+        gt_projector = F.normalize(gt_projector, dim=-1) # 归一化
+        return 1 - F.cosine_similarity(pred_output, gt_projector, dim=-1).mean()
+
+class HdriFeatureProj(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        self.spatial_aggregator = nn.Sequential(
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
+        )
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = rearrange(x, 'B f l c -> B f c l') 
+        return self.spatial_aggregator(x).squeeze(-1) # B f 768
