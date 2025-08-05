@@ -26,6 +26,7 @@ class TrainData(Dataset):
             ratio_train: float = 0.999, 
             ratio_val: float = 0.001,
         ):
+        self.hdri_root = "/share/project/public_data/rendering_data/hdri_related/hdri_512" 
         self.mode = mode
         self.image_size = 512
         self.data_root = data_root 
@@ -36,10 +37,9 @@ class TrainData(Dataset):
         self.hdri_root = None # root of hdri
         self.hdri_preprocessor = HDRI_Preprocessor(envmap_h=256, envmap_w=512)
         self.objlist = []
-        for i in range(len(self.data_root)):
-             with os.scandir(self.data_root[i]) as entries:
-                self.objlist += [entry.path for entry in entries if entry.is_dir()]
-             print(f"[Dataset]  => {len(self.objlist)} items selected.")
+        with os.scandir(self.data_root) as entries:
+            self.objlist += [entry.path for entry in entries if entry.is_dir()]
+        print(f"[Dataset]  => {len(self.objlist)} items selected.")             
         random.shuffle(self.objlist)
         objlist = self.objlist
         total = len(objlist)

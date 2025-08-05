@@ -166,13 +166,12 @@ class Net(nn.Module):
             "loss_area_lights": loss_area_lights,
         }
 
-class SDMUPSModule(pl.lightningModule):
+class LINO_UniPSModule(pl.LightningModule):
     def __init__(
         self,
         net: torch.nn.Module,
         optimizer_class,
         scheduler_class,
-        compile: bool,
         canonical_resolution: int,
         sample_num: int,
         save_dir: str,

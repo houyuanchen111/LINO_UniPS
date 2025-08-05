@@ -3,7 +3,7 @@ from src.data.data_train_module import TrainData
 import pytorch_lightning as pl
 from pytorch_lightning import seed_everything 
 import argparse
-from src.models.Net_train_module import Net, SDMUPSModule
+from src.models.Net_train_module import Net, LINO_UniPSModule
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
@@ -40,11 +40,10 @@ def train_model(args):
     )
     
 
-    model = SDMUPSModule(
+    model = LINO_UniPSModule(
         net=net,
         optimizer_class=optim.AdamW,
         scheduler_class=StepLR,
-        compile=args.compile,
         canonical_resolution=args.canonical_resolution,
         sample_num=args.pixel_samples,
         save_dir=args.save_dir,
