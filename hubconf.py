@@ -31,7 +31,7 @@ def load_test_data(data_root: list, numofimages: int):
 def load_data(input_imgs_list, input_mask):
     return DemoData(input_imgs_list,input_mask)
 
-def LINO(local_file_path: Optional[str] = None):
+def LINO(local_file_path: Optional[str] = None,task_name="DiLiGenT", **kwargs):
     """
     Load the LINO model with optional local file path for state_dict.
     
@@ -42,7 +42,7 @@ def LINO(local_file_path: Optional[str] = None):
         Predictor: An instance of the Predictor class with the loaded model.
     """
     state_dict = _load_state_dict(local_file_path)
-    model = LiNo_UniPS()
+    model = LiNo_UniPS(task_name=task_name, **kwargs)
     model.load_state_dict(state_dict, strict=False)
     model.eval()
     

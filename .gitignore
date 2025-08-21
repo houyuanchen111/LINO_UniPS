@@ -8,3 +8,8 @@ figures/*git
 *.csv
 demo_tmp
 demo/basket
+weights/*
+.vscode/*
+stat.py
+*.json
+eval_local.py

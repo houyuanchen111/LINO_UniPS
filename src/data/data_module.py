@@ -198,7 +198,10 @@ class TestData(Dataset):
                 
                 if os.path.exists(nml_path):
                     if "DIR_pms" in obj_path:
-                        N = loadmat(nml_path)['Normal_gt']
+                        N = loadmat(nml_path)['Normal_gt'] # 512 612 3 [-1, 1] 
+                        N = N / np.linalg.norm(N, axis=2, keepdims=True)
+                        N = N * mask[:, :, np.newaxis]
+                        n_true = N
                     else:
                         bit_depth = 65535.0 if "LUCES" in obj_path else 255.0
                         N = cv2.cvtColor(cv2.imread(nml_path, flags=cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB) / bit_depth
