@@ -204,10 +204,11 @@ The performance of our released model exceeds the results originally reported in
 </table>
 
 
-<figure align="center">
-  <img src="figures/DIR_15_PlasterPNG.png" width="50%" alt="Teaser" style="border-radius:10px;"/>
+
+<p align="center">
+ <img src="figures/DIR_15_PlasterPNG.png" width="50%" alt="Teaser" style="border-radius:10px;"/>
   <figcaption><strong>Normal reconstruction result of PlasterPNG on DIR benchmark. The MAE improves by 41.8% compared to the reported SOTA in the <a href="https://michaelcsj.github.io/DIR/static/DIR.pdf">paper</a>.</strong></figcaption>
-</figure>
+</p>
 
 ### 🧑🏼‍🏫 Evaluating on Real-World Data (In-the-Wild)
 
