@@ -193,14 +193,14 @@ def custom_interpolate(
 
 def _make_scratch(in_shape, out_shape: int, groups: int = 1, expand: bool = False) -> nn.Module:
     """
-    
+    Create scratch network layers
     """
     scratch = nn.Module() 
 
-    
+    # Define activation function
     activation_function = nn.LeakyReLU  
 
-    
+    # Define output shapes for different layers
     out_shape1 = out_shape
     out_shape2 = out_shape
     out_shape3 = out_shape
@@ -214,19 +214,21 @@ def _make_scratch(in_shape, out_shape: int, groups: int = 1, expand: bool = Fals
         if len(in_shape) >= 4:
             out_shape4 = out_shape * 8
 
-    
+    # Create layer 1
     scratch.layer1_rn = nn.Sequential(
         nn.Conv2d(
             in_shape[0], out_shape1, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
         ),
         activation_function() 
     )
+    # Create layer 2
     scratch.layer2_rn = nn.Sequential(
         nn.Conv2d(
             in_shape[1], out_shape2, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
         ),
         activation_function() 
     )
+    # Create layer 3
     scratch.layer3_rn = nn.Sequential(
         nn.Conv2d(
             in_shape[2], out_shape3, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
@@ -234,7 +236,7 @@ def _make_scratch(in_shape, out_shape: int, groups: int = 1, expand: bool = Fals
         activation_function() 
     )
     if len(in_shape) >= 4:
-        
+        # Create layer 4
         scratch.layer4_rn = nn.Sequential(
             nn.Conv2d(
                 in_shape[3], out_shape4, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
@@ -415,40 +417,40 @@ class ImageFeatureFusion(nn.Module):
 
         B = glc.shape[0]
 
-        # 如果不需要分块（总批次大小小于或等于块大小），则直接调用核心实现
+        # If chunking is not needed (total batch size <= chunk size), call core implementation directly
         if chunk_size is None or chunk_size >= B:
             return self._forward_impl(glc, nImgArray)
 
-        # 否则，进行分块处理
+        # Otherwise, process in chunks
         all_outputs = []
-        # 以 chunk_size 为步长进行循环
+        # Loop with chunk_size as step
         for start_idx in range(0, B, chunk_size):
-            # 计算当前块的结束索引
+            # Calculate end index for current chunk
             end_idx = min(start_idx + chunk_size, B)
             
-            # 从大的输入张量中切出当前要处理的小块
+            # Extract current chunk from large input tensor
             glc_chunk = glc[start_idx:end_idx]
             
-            # 注意：如果 nImgArray 也与批次相关，也需要进行切片
+            # Note: If nImgArray is also batch-related, it needs to be sliced too
             # nImgArray_chunk = nImgArray[start_idx:end_idx]
             
-            # 调用核心实现函数来处理这个小块
+            # Call core implementation function to process this chunk
             chunk_output = self._forward_impl(glc_chunk, nImgArray)
             
             all_outputs.append(chunk_output)
             
-        # 将所有小块的处理结果，沿着批次维度（dim=0）重新拼接起来
+        # Concatenate all chunk processing results along batch dimension (dim=0)
         final_output = torch.cat(all_outputs, dim=0)
         
         return final_output
 
     def _forward_impl(self, glc: torch.Tensor, nImgArray: torch.Tensor) -> torch.Tensor:
         """
-        这是核心实现方法，处理一个数据块（chunk）。
-        这里的代码就是您提供的原始 forward 方法的主体。
+        This is the core implementation method that processes a data chunk.
+        The code here is the main body of your original forward method.
         """
         self.iwt_filter = self.iwt_filter.to(glc.device)
-        B, layer_num, N, C = glc.shape # 这里的 B 现在是 chunk_size
+        B, layer_num, N, C = glc.shape # B is now chunk_size
         out = []
         
         for layer in range(layer_num):
@@ -648,10 +650,10 @@ class PointLightAlign(nn.Module):
         x = self.feature_aggregator(x) # f split+down_sample(5) num_block 384
         x = rearrange(x, 'B f split_down num_block c -> B f split_down (num_block c)')
         x = torch.mean(x, dim=2) # Average Pooling
-        pred_output = self.predictor(x) # 假设形状是 [B, f, split_down, 12]
+        pred_output = self.predictor(x) 
         gt_projector = self.gt_point_projector(gt)
-        pred_output = F.normalize(pred_output, dim=-1) # 归一化
-        gt_projector = F.normalize(gt_projector, dim=-1) # 归一化
+        pred_output = F.normalize(pred_output, dim=-1) 
+        gt_projector = F.normalize(gt_projector, dim=-1) 
         return 1 - F.cosine_similarity(pred_output, gt_projector, dim=-1).mean()
 
 class AreaAlign(nn.Module):    
@@ -674,15 +676,14 @@ class AreaAlign(nn.Module):
             nn.Linear(64, 384),
         )
 
-
     def forward(self, x: torch.Tensor,gt) -> torch.Tensor:
-        x = self.feature_aggregator(x) # f split+down_sample(5) num_block 384
+        x = self.feature_aggregator(x) # 
         x = rearrange(x, 'B f split_down num_block c -> B f split_down (num_block c)')
-        x = torch.mean(x, dim=2) # Average Pooling
-        pred_output = self.predictor(x) # 假设形状是 [B, f, split_down, 12]
+        x = torch.mean(x, dim=2) 
+        pred_output = self.predictor(x)
         gt_projector = self.gt_area_projector(gt)
-        pred_output = F.normalize(pred_output, dim=-1) # 归一化
-        gt_projector = F.normalize(gt_projector, dim=-1) # 归一化
+        pred_output = F.normalize(pred_output, dim=-1) 
+        gt_projector = F.normalize(gt_projector, dim=-1) 
         return 1 - F.cosine_similarity(pred_output, gt_projector, dim=-1).mean()
 
 class HdriFeatureProj(nn.Module):
