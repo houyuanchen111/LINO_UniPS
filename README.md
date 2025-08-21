@@ -33,6 +33,7 @@
 * **Mask-Free:** Also supports mask-free scene normal reconstruction.
 
 # ✨ News
+- August 2025 - Update the eval code for a new benchmark -- [DIR](https://github.com/MichaelCSJ/DIR). We're still SOTA!!!
 - August 2025 - Release training code.
 - June 2025 - Release paper, project page, Hugging Face demo and model checkpoint. 
 
@@ -58,7 +59,7 @@ Download the following benchmarks for evaluate our LiNO-UniPS.
 * [DiLiGenT](https://drive.google.com/open?id=1EgC3x8daOWL4uQmc6c4nXVe4mdAMJVfg): A widely-used benchmark for photometric stereo, consisting of 10 real-world objects with diverse shapes and materials under precisely calibrated directional lighting.
 * [LUCES](https://opendatalab.com/OpenDataLab/LUCES/cli/main): A challenging benchmark focused on complex material properties, captured under thousands of high-frequency lighting conditions from a screen-based setup.
 * [DiLiGent10<sup>2</sup>](https://disk.pku.edu.cn/anyshare/zh-cn/link/AA2725831ED6D74D2396D8338CF434669D?_tb=none&expires_at=2035-04-14T14%3A43%3A48%2B08%3A00&item_type=file&password_required=false&title=DiLiGenT10%5E2_pmsData_release.zip&type=anonymous): The large-scale successor to DiLiGenT, featuring 100 real-world objects with more complex geometries and materials to better evaluate state-of-the-art methods.
-
+* [DIR](https://huggingface.co/datasets/SeokjunChoi/display-inverse-rendering-dataset): DIR is a dataset for Display Inverse Rendering (DIR). It contains assets captured from LCD & polarization-camera system, which is the latest benchmark for the Photometric Stereo
 After downloading, place them under `data/` as the folloing directory tree.
 ```bash
 |-- data
@@ -70,6 +71,9 @@ After downloading, place them under `data/` as the folloing directory tree.
   └── ...
   DiLiGenT_100 
   ├── BALL_ABS
+  └── ...
+  DIR_pms 
+  ├── 01_ElephantPNG
   └── ...
 ```
 ### 🧑‍🏫 Evaluating on Benchmarks 
@@ -83,6 +87,9 @@ python eval.py --task_name LUCES --data_root data/LUCES/ --num_images 16
 
 # DiLIGenT10²
 python eval.py --task_name DiLiGenT_100 --data_root data/DiLiGenT_100/ --num_images 16
+
+# DIR
+python eval.py --task_name DIR --data_root data/DIR_pms/ --num_images 64
 ```
 The evaluation results will be stored in the output directory.
 
@@ -195,6 +202,12 @@ The performance of our released model exceeds the results originally reported in
     </td>
   </tr>
 </table>
+
+
+<figure align="center">
+  <img src="figures/DIR_15_PlasterPNG.png" width="50%" alt="Teaser" style="border-radius:10px;"/>
+  <figcaption><strong>Normal reconstruction result of PlasterPNG on DIR benchmark. The MAE improves by 41.8% compared to the reported SOTA in the <a href="https://michaelcsj.github.io/DIR/static/DIR.pdf">paper</a>.</strong></figcaption>
+</figure>
 
 ### 🧑🏼‍🏫 Evaluating on Real-World Data (In-the-Wild)
 
