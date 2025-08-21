@@ -4,39 +4,10 @@ import torch.nn.functional as F
 from math import sqrt, pi  
 
 
-# FP16_MODULES = (
-#     nn.Conv1d,
-#     nn.Conv2d,
-#     nn.Conv3d,
-#     nn.ConvTranspose1d,
-#     nn.ConvTranspose2d,
-#     nn.ConvTranspose3d,
-#     nn.Linear,
-#     sp.SparseConv3d,
-#     sp.SparseInverseConv3d,
-#     sp.SparseLinear,
-# )
-
-# def convert_module_to_f16(l):
-#     """
-#     Convert primitive modules to float16.
-#     """
-#     if isinstance(l, FP16_MODULES):
-#         for p in l.parameters():
-#             p.data = p.data.half()
-
-
-# def convert_module_to_f32(l):
-#     """
-#     Convert primitive modules to float32, undoing convert_module_to_f16().
-#     """
-#     if isinstance(l, FP16_MODULES):
-#         for p in l.parameters():
-#             p.data = p.data.float()
 
 
 class SphericalHarmonicsEncoder(nn.Module):  
-    """球谐函数编码器，degree=2，输出9通道"""  
+    """Spherical Harmonics Encoder, degree=2, output 9 channels"""  
 
     def __init__(self, degree=2):  
         super().__init__()  
@@ -45,27 +16,27 @@ class SphericalHarmonicsEncoder(nn.Module):
     def forward(self, dirs: torch.Tensor) -> torch.Tensor:  
         """  
         Args:  
-            dirs: [B, 3, H, W] 方向向量（单位向量）  
+            dirs: [B, 3, H, W] direction vectors (unit vectors)  
         Returns:  
-            sh: [B, (degree+1)^2, H, W] SH编码特征  
+            sh: [B, (degree+1)^2, H, W] SH encoded features  
         """  
-        dirs = F.normalize(dirs, dim=1)  # 保证单位向量  
+        dirs = F.normalize(dirs, dim=1)  # Ensure unit vectors  
         x, y, z = dirs[:, 0], dirs[:, 1], dirs[:, 2]  # [B,H,W]  
 
         B, H, W = x.shape  
         device = dirs.device  
         sh_list = []  
 
-        # 常数项 l=0  
+        # Constant term l=0  
         sh_list.append(torch.ones_like(x) * (1 / (2 * sqrt(pi))))  
 
-        # l=1 基  
+        # l=1 basis  
         if self.degree >= 1:  
             sh_list.append(y * sqrt(3 / (4 * pi)))  # m = -1  
             sh_list.append(z * sqrt(3 / (4 * pi)))  # m = 0  
             sh_list.append(x * sqrt(3 / (4 * pi)))  # m = 1  
 
-        # l=2 基  
+        # l=2 basis  
         if self.degree >= 2:  
             sh_list.append(x * y * sqrt(15 / pi) / 2)        # m = -2  
             sh_list.append(y * z * sqrt(15 / (4 * pi)))      # m = -1  
@@ -79,29 +50,29 @@ class SphericalHarmonicsEncoder(nn.Module):
 
 class DirectionEncoder(nn.Module):  
     """  
-    方向向量编码器：先SH编码，映射为中间通道数，再用卷积编码提取高阶特征  
-    输入: [B, 3, H, W]  
-    输出: [B, out_dim, H/8, W/8]，和其他编码器输出通道数统一  
+    Direction vector encoder: first SH encoding, map to intermediate channels, then use conv encoder to extract higher-order features  
+    Input: [B, 3, H, W]  
+    Output: [B, out_dim, H/8, W/8], same output channels as other encoders  
     """  
 
     def __init__(self, out_dim=256, degree=2, base_channels=64, num_blocks=2):  
         """  
         Args:  
-            out_dim: 最终输出通道数（如与LDR、LOG编码器一致）  
-            degree: SH函数次数，默认2，输出9通道  
-            base_channels: SH投影后初始卷积通道数  
-            num_blocks: 残差块数量  
+            out_dim: final output channels (same as LDR, LOG encoders)  
+            degree: SH function degree, default 2, output 9 channels  
+            base_channels: initial conv channels after SH projection  
+            num_blocks: number of residual blocks  
         """  
         super().__init__()  
         self.degree = degree  
         self.sh_encoder = SphericalHarmonicsEncoder(degree)  
 
-        # SH9通道映射成 base_channels (如64)  
+        # Map SH 9 channels to base_channels (e.g., 64)  
         self.project = nn.Conv2d((degree + 1) ** 2, base_channels, kernel_size=1, bias=False)  
         self.norm_proj = nn.GroupNorm(16, base_channels)  
         self.act_proj = nn.GELU()  
 
-        # 下采样卷积编码器，类似SimpleEncoder但简化版  
+        # Downsampling conv encoder, similar to SimpleEncoder but simplified  
         layers = [  
             nn.Conv2d(base_channels, base_channels, 3, stride=2, padding=1, bias=False),  # H/2  
             nn.GroupNorm(16, base_channels),  
@@ -115,7 +86,7 @@ class DirectionEncoder(nn.Module):
         ]  
         self.conv_encoder = nn.Sequential(*layers)  
 
-        # 可选残差块强化  
+        # Optional residual blocks for enhancement  
         self.resblocks = nn.Sequential(  
             *[ResidualBlockGN(out_dim) for _ in range(num_blocks)]  
         )  
@@ -132,18 +103,18 @@ class DirectionEncoder(nn.Module):
         return x  
 
 class RMSNorm(nn.Module):
-    """带可学习缩放因子的RMS标准化"""
+    """RMS normalization with learnable scaling factor"""
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))  # 可学习缩放因子
+        self.weight = nn.Parameter(torch.ones(dim))  # Learnable scaling factor
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
-        x = x.to(self.weight.dtype)  # 确保数据类型一致
+        x = x.to(self.weight.dtype)  # Ensure data type consistency
         norm = torch.mean(x**2, dim=-1, keepdim=True)
         output = self.weight * (x * torch.rsqrt(norm + self.eps))
-        return output.to(dtype)  # 恢复原数据类型  
+        return output.to(dtype)  # Restore original data type
 
 
 class ResidualBlockGN(nn.Module):  
@@ -167,7 +138,7 @@ class ResidualBlockGN(nn.Module):
 
 
 class SimpleEncoder(nn.Module):  
-    """三路输入通用编码器。下采样8倍至32x32，输出通道dim"""  
+    """General encoder for three-way input. Downsample by 8x to 32x32, output channels dim"""  
     def __init__(self, in_channels=3, dim=256, num_blocks=2):  
         super().__init__()  
         mid_dim = dim // 2  
@@ -215,14 +186,14 @@ class MultiHeadAttentionRMS(nn.Module):
         self.use_rope = use_rope  
         self.q_norm = RMSNorm(self.head_dim)  
         self.k_norm = RMSNorm(self.head_dim)  
-        # 可扩展加入旋转编码等  
+        # Optionally add rotary encoding, etc.  
 
     def forward(self, x, pos=None):  
         B, L, D = x.shape  
         qkv = self.to_qkv(x).view(B, L, 3, self.num_heads, self.head_dim)  
         q, k, v = qkv.unbind(2)  # each [B,L,H,D]  
 
-        # 标准化  
+        # Normalization  
         q = self.q_norm(q)  
         k = self.k_norm(k)  
 
@@ -276,7 +247,7 @@ class HDRICondModel(nn.Module):
         use_fp16=False,  
     ):  
         super().__init__()  
-        # 三路独立编码器，dim均分给三路  
+        # Three independent encoders, dim equally divided for three routes  
         route_dim = model_dim // 3  
         self.encoder_ldr = SimpleEncoder(3, route_dim, num_blocks=num_blocks)  
         self.encoder_log = SimpleEncoder(3, route_dim, num_blocks=num_blocks)  
@@ -288,7 +259,7 @@ class HDRICondModel(nn.Module):
             *[TransformerBlock(model_dim, num_heads) for _ in range(num_attn_blocks)]  
         )  
         self.output_dim = model_dim  
-        self.token_num = 32 * 32  # 固定token数  
+        self.token_num = 32 * 32  # Fixed token number  
 
         self.use_fp16 = use_fp16  
 
@@ -318,10 +289,10 @@ class HDRICondModel(nn.Module):
     def forward(self, x):  
         """  
         Args:  
-            x: [B, 9, 256, 256] 输入张量  
-                - 0:3 LDR颜色 (sRGB)  
-                - 3:6 Log亮度 (log1p)  
-                - 6:9 观察方向 (单位向量)  
+            x: [B, 9, 256, 256] input tensor  
+                - 0:3 LDR color (sRGB)  
+                - 3:6 Log luminance (log1p)  
+                - 6:9 view direction (unit vector)  
 
         Returns:  
             fused token features: [B, 1024, model_dim]  
@@ -333,17 +304,17 @@ class HDRICondModel(nn.Module):
         log_feat = self.encoder_log(x[:, 3:6])    # [B, route_dim, 32, 32]  
         dir_feat = self.encoder_dir(x[:, 6:9])    # [B, route_dim, 32, 32]  
 
-        # 通道拼接  
+        # Channel concatenation  
         fused = torch.cat([ldr_feat, log_feat, dir_feat], dim=1)  # [B, model_dim, 32, 32]  
 
-        # 展平并转置成tokens  
+        # Flatten and transpose to tokens  
         fused = fused.flatten(2).permute(0, 2, 1)  # [B, 1024, model_dim]  
 
-        # 位置编码  
+        # Positional encoding  
         pos_emb = self.position_embed(B, 32, 32, device)  
         fused = fused + pos_emb  
 
-        # Transformer融合  
+        # Transformer fusion  
         fused = fused.type(self.dtype)
         fused = self.transformer(fused)  # [B, 1024, model_dim]  
 
@@ -352,16 +323,16 @@ class HDRICondModel(nn.Module):
 
 if __name__ == "__main__":  
     model = HDRICondModel()  
-    model.train()  # 开启训练模式，确保梯度流通  
+    model.train()  # Enable training mode to ensure gradient flow  
 
-    # 构造示例输入 B=2, 9通道, 256x256  
+    # Construct example input B=2, 9 channels, 256x256  
     x = torch.randn(2, 9, 256, 256, requires_grad=True)  
 
-    # 前向计算  
+    # Forward computation  
     out = model(x)  
     print(f"Output shape: {out.shape}")  
 
-    # 进行一次简单的loss计算和反向传播，测试梯度计算过程  
+    # Perform a simple loss computation and backward pass to test gradient computation  
     loss = out.sum()  
     loss.backward()  
 

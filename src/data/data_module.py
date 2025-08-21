@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 import cv2
 import glob
 import os
-
+from scipy.io import loadmat
 def get_roi(mask, margin=8):
     """
     """
@@ -146,7 +146,16 @@ class TestData(Dataset):
                 directlist = sorted([
                     path for path in glob.glob(os.path.join(obj_path, "*.png"))
                     if not os.path.basename(path).lower() == "mask.png"
-                ])           
+                ])  
+
+
+        elif "DIR_pms" in obj_path:
+            nml_path = os.path.join(obj_path, "Normal_gt.mat")
+            assert os.path.exists(nml_path), f"Normal_gt.mat not found in {obj_path}"
+            directlist = sorted([
+                    path for path in glob.glob(os.path.join(obj_path, "*.png"))
+                    if not os.path.basename(path).lower() == "mask.png"
+                ])  
         elif "LUCES" in obj_path:
             nml_path = os.path.join(obj_path, "normals.png")
             directlist = sorted([
@@ -188,12 +197,18 @@ class TestData(Dataset):
                     mask = np.ones_like(read_img)[:,:,0]
                 
                 if os.path.exists(nml_path):
-                    bit_depth = 65535.0 if "LUCES" in obj_path else 255.0
-                    N = cv2.cvtColor(cv2.imread(nml_path, flags=cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB) / bit_depth
-                    N = 2 * N - 1
-                    N = N / np.linalg.norm(N, axis=2, keepdims=True)
-                    N = N * mask[:, :, np.newaxis]
-                    n_true = N
+                    if "DIR_pms" in obj_path:
+                        N = loadmat(nml_path)['Normal_gt'] # 512 612 3 [-1, 1] 
+                        N = N / np.linalg.norm(N, axis=2, keepdims=True)
+                        N = N * mask[:, :, np.newaxis]
+                        n_true = N
+                    else:
+                        bit_depth = 65535.0 if "LUCES" in obj_path else 255.0
+                        N = cv2.cvtColor(cv2.imread(nml_path, flags=cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB) / bit_depth
+                        N = 2 * N - 1
+                        N = N / np.linalg.norm(N, axis=2, keepdims=True)
+                        N = N * mask[:, :, np.newaxis]
+                        n_true = N
 
 
                 self.roi = get_roi(mask)
