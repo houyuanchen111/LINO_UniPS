@@ -177,25 +177,24 @@ class LiNo_UniPS(pl.LightningModule):
 
     def _postprocess_brdf_predictions(self, baseColor_raw, roughness_raw, metal_raw, roi):
         h_orig, w_orig, r_s, r_e, c_s, c_e = roi
-
         # baseColor: [1,3,H,W] -> HxWx3
         bc = baseColor_raw.squeeze().permute(1, 2, 0).float().cpu().numpy()
         bc = cv2.resize(bc, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
-        bc = np.clip(bc, 0.0, 1.0)
+        bc = np.clip(bc, -1.0, 1.0) * 0.5 + 0.5
 
         # roughness: [1,1,H,W] -> HxW
         rough = roughness_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
         if rough.ndim == 3 and rough.shape[2] == 1:
             rough = rough[:, :, 0]
         rough = cv2.resize(rough, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
-        rough = np.clip(rough, 0.0, 1.0)
+        rough = np.clip(rough, -1.0, 1.0) * 0.5 + 0.5
 
         # metal: [1,1,H,W] -> HxW
         metal = metal_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
         if metal.ndim == 3 and metal.shape[2] == 1:
             metal = metal[:, :, 0]
         metal = cv2.resize(metal, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
-        metal = np.clip(metal, 0.0, 1.0)
+        metal = np.clip(metal, -1.0, 1.0) * 0.5 + 0.5
 
         bc_out = np.zeros((h_orig, w_orig, 3), np.float32)
         bc_out[r_s:r_e, c_s:c_e, :] = bc
@@ -220,11 +219,12 @@ class LiNo_UniPS(pl.LightningModule):
         
         return mse, mae, emap
 
-    def _save_test_results(self, nout, nml_gt, emap, img, loss, mae, directlist, save_dir, baseColor=None, roughness=None, metal=None):
+    def _save_test_results(self, nout, nml_gt, emap, img, loss, mae, directlist, save_dir, baseColor=None, roughness=None, metal=None,mask_gt=None):
        
         obj_name_parts = os.path.dirname(directlist[0][0]).split('/')
         obj_name = obj_name_parts[-1]
-       
+        if mask_gt.ndim == 2:
+            mask_gt = mask_gt[:, :, np.newaxis]
      
         save_path = os.path.join(save_dir,f'{self.numberofImages}',f'{obj_name}')
         os.makedirs(save_path, exist_ok=True)
@@ -245,11 +245,11 @@ class LiNo_UniPS(pl.LightningModule):
 
             # 保存 BRDF 相关图片（若提供）
             if baseColor is not None:
-                plt.imsave(save_path + '/baseColor.png', np.clip(baseColor, 0, 1))
+                plt.imsave(save_path + '/baseColor.png', mask_gt * np.clip(baseColor, 0, 1))
             if roughness is not None:
-                plt.imsave(save_path + '/roughness.png', np.clip(roughness, 0, 1), cmap='gray')
+                plt.imsave(save_path + '/roughness.png', mask_gt * np.clip(roughness, 0, 1), cmap='gray')
             if metal is not None:
-                plt.imsave(save_path + '/metallic.png', np.clip(metal, 0, 1), cmap='gray')
+                plt.imsave(save_path + '/metallic.png', mask_gt * np.clip(metal, 0, 1), cmap='gray')
 
             fig, axes = plt.subplots(1, 3, figsize=(12, 4))
             axes[0].imshow(np.clip(nout_to_save, 0, 1))
@@ -279,26 +279,26 @@ class LiNo_UniPS(pl.LightningModule):
             torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
             nout = (nout + 1) / 2 
             plt.imsave(save_path + '/nml_predict.png', nout)
-            # 保存 BRDF 相关图片（若提供）
+            # 保存 BRDF 相关图片（若提供）。这些已在后处理映射到 [0,1]
             if baseColor is not None:
-                plt.imsave(save_path + '/baseColor.png', np.clip(baseColor * 0.5 + 0.5, 0, 1))
+                plt.imsave(save_path + '/baseColor.png', np.clip(baseColor, 0, 1))
             if roughness is not None:
-                plt.imsave(save_path + '/roughness.png', np.clip(roughness * 0.5 + 0.5, 0, 1), cmap='gray')
+                plt.imsave(save_path + '/roughness.png', np.clip(roughness, 0, 1), cmap='gray')
             if metal is not None:
-                plt.imsave(save_path + '/metallic.png', np.clip(metal * 0.5 + 0.5, 0, 1), cmap='gray')
+                plt.imsave(save_path + '/metallic.png', np.clip(metal, 0, 1), cmap='gray')
 
     def test_step(self, batch, batch_idx):
         
-        img, nml_gt, directlist, roi = self._prepare_test_inputs(batch)
+        img, nml_gt_raw, directlist, roi = self._prepare_test_inputs(batch)
         
         nml_predict, baseColor_predict, roughness_predict, metal_predict = self.model_step(batch)
 
-        nout, nml_gt, mask_gt = self._postprocess_prediction(nml_predict, nml_gt, roi)
+        nout, nml_gt, mask_gt = self._postprocess_prediction(nml_predict, nml_gt_raw, roi)
         bc_out, rough_out, metal_out = self._postprocess_brdf_predictions(baseColor_predict, roughness_predict, metal_predict, roi)
         if ("DiLiGenT_100" not in self.task_name) and ("Real" not in self.task_name):
             loss, mae, emap = self._calculate_and_log_metrics(nout, nml_gt, mask_gt)
             print(f"{os.path.basename(os.path.dirname(directlist[0][0]))} | MAE: {mae:.4f}")
-            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out)
+            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out,mask_gt=mask_gt)
         else:
             emap,loss,mae = None,None,None
             self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out)
