@@ -127,6 +127,8 @@ class TestData(Dataset):
         self.data_root = data_root 
         self.numberOfImages = numofimages
         self.objlist = []
+        if isinstance(self.data_root, str):
+            self.data_root = [self.data_root]
         for i in range(len(self.data_root)):
              with os.scandir(self.data_root[i]) as entries:
                 self.objlist += [entry.path for entry in entries if entry.is_dir()]
