@@ -98,7 +98,8 @@ class LiNo_UniPS(pl.LightningModule):
     def __init__(self, 
                  pixel_samples: int = 2048,
                  task_name :str = None,
-                 brdf :bool = False):
+                 brdf :bool = False
+                 ):
         super().__init__()
         self.pixel_samples = pixel_samples
         self.task_name = task_name
@@ -266,6 +267,9 @@ class LiNo_UniPS(pl.LightningModule):
         sliding_blocks = patches_I.shape[1]
         patches_M = decompose_tensors.divide_tensor_spatial(M, block_size=patch_size, method='tile_stride')
         patches_nml = []
+        patches_baseColor = []
+        patches_roughness = []
+        patches_metal = []
 
         nImgArray = np.array([Nmax])
         canonical_resolution = 256
@@ -307,7 +311,10 @@ class LiNo_UniPS(pl.LightningModule):
             del M
             _, _, H, W = I_dec.shape         
             p = 0
-            nout = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
+            baseColor_out = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
+            roughness_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
+            metal_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
+            normal_out = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
             conf_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
             for b in range(B):
                 target = range(p, p+nImgArray[b])
@@ -327,17 +334,40 @@ class LiNo_UniPS(pl.LightningModule):
                     glc_ids = self.glc_upsample(x)
                     x = o_ids + glc_ids
                     x = self.glc_aggregation(x)  
-                    x_n, _, _, conf = self.regressor(x, len(ids)) 
-                    x_n = F.normalize(x_n, p=2, dim=-1)
-                    nout[b, ids, :] = x_n[b,:,:]
-                    conf_out[b, ids, :] = conf[b,:,:].to(I.dtype)
+                    result_dict= self.regressor(x, len(ids))
+                    normal_predict = result_dict['normal']
+                    baseColor_predict = result_dict['baseColor']
+                    roughness_predict = result_dict['roughness']
+                    metal_predict = result_dict['metallic']
+                    conf_predict = result_dict['conf']
+                    normal_predict = F.normalize(normal_predict, p=2, dim=-1)
+                    baseColor_predict = F.normalize(baseColor_predict, p=2, dim=-1)
+                    roughness_predict = F.normalize(roughness_predict, p=2, dim=-1)
+                    metal_predict = F.normalize(metal_predict, p=2, dim=-1)
+                    normal_out[b, ids, :] = normal_predict[b,:,:]
+                    baseColor_out[b, ids, :] = baseColor_predict[b,:,:]
+                    roughness_out[b, ids, :] = roughness_predict[b,:,:]
+                    metal_out[b, ids, :] = metal_predict[b,:,:]
+                    conf_out[b, ids, :] = conf_predict[b,:,:].to(I.dtype)
                 nout = nout.reshape(B,H,W,3).permute(0,3,1,2)
                 conf_out = conf_out.reshape(B,H,W,1).permute(0,3,1,2)
+                baseColor_out = baseColor_out.reshape(B,H,W,3).permute(0,3,1,2)
+                roughness_out = roughness_out.reshape(B,H,W,1).permute(0,3,1,2)
+                metal_out = metal_out.reshape(B,H,W,1).permute(0,3,1,2)
                 patches_nml.append(nout)
+                patches_baseColor.append(baseColor_out)
+                patches_roughness.append(roughness_out)
+                patches_metal.append(metal_out)
 
         patches_nml = torch.stack(patches_nml, dim=1)
+        patches_baseColor = torch.stack(patches_baseColor, dim=1)
+        patches_roughness = torch.stack(patches_roughness, dim=1)
+        patches_metal = torch.stack(patches_metal, dim=1)
         merged_tensor_nml = decompose_tensors.merge_tensor_spatial(patches_nml.permute(1,0,2,3,4), method='tile_stride')
-        return merged_tensor_nml
+        merged_tensor_baseColor = decompose_tensors.merge_tensor_spatial(patches_baseColor.permute(1,0,2,3,4), method='tile_stride')
+        merged_tensor_roughness = decompose_tensors.merge_tensor_spatial(patches_roughness.permute(1,0,2,3,4), method='tile_stride')
+        merged_tensor_metal = decompose_tensors.merge_tensor_spatial(patches_metal.permute(1,0,2,3,4), method='tile_stride')
+        return merged_tensor_nml, merged_tensor_baseColor, merged_tensor_roughness, merged_tensor_metal
 
     def forward(self, batch):
         return self.predict_step(batch=batch)
