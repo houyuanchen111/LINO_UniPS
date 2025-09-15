@@ -219,11 +219,12 @@ class LiNo_UniPS(pl.LightningModule):
         
         return mse, mae, emap
 
-    def _save_test_results(self, nout, nml_gt, emap, img, loss, mae, directlist, save_dir, baseColor=None, roughness=None, metal=None,mask_gt=None):
+    def _save_test_results(self, nout, nml_gt, emap, img, loss, mae, directlist, save_dir, baseColor=None, roughness=None, metal=None, mask_gt=None):
        
         obj_name_parts = os.path.dirname(directlist[0][0]).split('/')
         obj_name = obj_name_parts[-1]
-        if mask_gt.ndim == 2:
+        # 统一处理 alpha 通道用的 mask（HxW 或 HxWx1）
+        if mask_gt is not None and mask_gt.ndim == 2:
             mask_gt = mask_gt[:, :, np.newaxis]
      
         save_path = os.path.join(save_dir,f'{self.numberofImages}',f'{obj_name}')
@@ -238,18 +239,37 @@ class LiNo_UniPS(pl.LightningModule):
             emap_to_save[emap_to_save >= thresh] = thresh
             emap_to_save = emap_to_save / thresh
 
-            plt.imsave(save_path + '/nml_predict.png', np.clip(nout_to_save, 0, 1))
-            plt.imsave(save_path + '/nml_gt.png', np.clip(nml_gt_to_save, 0, 1))
+            # 构造保存 RGBA 的工具
+            def _save_rgba(rgb_img, alpha, path, is_gray=False):
+                rgb = np.clip(rgb_img, 0, 1)
+                a = np.clip(alpha, 0, 1)
+                if is_gray:
+                    if rgb.ndim == 2:
+                        rgb = np.stack([rgb, rgb, rgb], axis=2)
+                    elif rgb.ndim == 3 and rgb.shape[2] == 1:
+                        rgb = np.repeat(rgb, 3, axis=2)
+                if a.ndim == 2:
+                    a = a[:, :, np.newaxis]
+                rgba = np.concatenate([rgb, a], axis=2)
+                plt.imsave(path, rgba)
+
+            # 保存法线预测/GT为 RGBA
+            alpha = mask_gt if mask_gt is not None else np.ones_like(nout_to_save[:, :, :1])
+            _save_rgba(nout_to_save, alpha, save_path + '/nml_predict.png')
+            _save_rgba(nml_gt_to_save, alpha, save_path + '/nml_gt.png')
             plt.imsave(save_path + '/error_map.png', emap_to_save, cmap='jet')
             torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
 
             # 保存 BRDF 相关图片（若提供）
             if baseColor is not None:
-                plt.imsave(save_path + '/baseColor.png', mask_gt * np.clip(baseColor, 0, 1))
+                alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
+                _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
             if roughness is not None:
-                plt.imsave(save_path + '/roughness.png', mask_gt * np.clip(roughness, 0, 1), cmap='gray')
+                alpha = mask_gt if mask_gt is not None else np.ones_like(roughness[:, :, np.newaxis])
+                _save_rgba(roughness, alpha, save_path + '/roughness.png', is_gray=True)
             if metal is not None:
-                plt.imsave(save_path + '/metallic.png', mask_gt * np.clip(metal, 0, 1), cmap='gray')
+                alpha = mask_gt if mask_gt is not None else np.ones_like(metal[:, :, np.newaxis])
+                _save_rgba(metal, alpha, save_path + '/metallic.png', is_gray=True)
 
             fig, axes = plt.subplots(1, 3, figsize=(12, 4))
             axes[0].imshow(np.clip(nout_to_save, 0, 1))
@@ -278,14 +298,32 @@ class LiNo_UniPS(pl.LightningModule):
                 savemat(mat_save_path + "/" + obj_name + '.mat',  {'Normal_est': normal_map})
             torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
             nout = (nout + 1) / 2 
-            plt.imsave(save_path + '/nml_predict.png', nout)
+            # 保存法线预测为 RGBA（Real/DiLiGenT_100 分支不含 GT/emap）
+            alpha = mask_gt if mask_gt is not None else np.ones_like(nout[:, :, :1])
+            def _save_rgba(rgb_img, alpha, path, is_gray=False):
+                rgb = np.clip(rgb_img, 0, 1)
+                a = np.clip(alpha, 0, 1)
+                if is_gray:
+                    if rgb.ndim == 2:
+                        rgb = np.stack([rgb, rgb, rgb], axis=2)
+                    elif rgb.ndim == 3 and rgb.shape[2] == 1:
+                        rgb = np.repeat(rgb, 3, axis=2)
+                if a.ndim == 2:
+                    a = a[:, :, np.newaxis]
+                rgba = np.concatenate([rgb, a], axis=2)
+                plt.imsave(path, rgba)
+
+            _save_rgba(nout, alpha, save_path + '/nml_predict.png')
             # 保存 BRDF 相关图片（若提供）。这些已在后处理映射到 [0,1]
             if baseColor is not None:
-                plt.imsave(save_path + '/baseColor.png', np.clip(baseColor, 0, 1))
+                alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
+                _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
             if roughness is not None:
-                plt.imsave(save_path + '/roughness.png', np.clip(roughness, 0, 1), cmap='gray')
+                alpha = mask_gt if mask_gt is not None else np.ones_like(roughness[:, :, np.newaxis])
+                _save_rgba(roughness, alpha, save_path + '/roughness.png', is_gray=True)
             if metal is not None:
-                plt.imsave(save_path + '/metallic.png', np.clip(metal, 0, 1), cmap='gray')
+                alpha = mask_gt if mask_gt is not None else np.ones_like(metal[:, :, np.newaxis])
+                _save_rgba(metal, alpha, save_path + '/metallic.png', is_gray=True)
 
     def test_step(self, batch, batch_idx):
         
@@ -301,7 +339,7 @@ class LiNo_UniPS(pl.LightningModule):
             self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out,mask_gt=mask_gt)
         else:
             emap,loss,mae = None,None,None
-            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out)
+            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out,mask_gt=mask_gt)
 
     def predict_step(self,batch):
         roi = batch.get("roi",None)

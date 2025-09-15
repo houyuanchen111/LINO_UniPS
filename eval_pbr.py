@@ -22,13 +22,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_root", 
         type=str, 
-        default="data/DiLiGenT/pmsData/",
+        default="data/LUCES/data/",
         help="Root directory of the dataset"
     )
     parser.add_argument(
         "--num_images", 
         type=int, 
-        default=16,
+        default=32,
         help="Number of images to process"
     )
     parser.add_argument(
