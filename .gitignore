@@ -13,3 +13,4 @@ weights/*
 stat.py
 *.json
 eval_local.py
+lightning_logs/*
