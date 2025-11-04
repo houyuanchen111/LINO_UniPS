@@ -33,6 +33,7 @@
 * **Mask-Free:** Also supports mask-free scene normal reconstruction.
 
 # ✨ News
+- November 2025 - Update the code for PBR material estimation.
 - August 2025 - Update the eval code for a new benchmark -- [DIR](https://github.com/MichaelCSJ/DIR). We're still SOTA!!!
 - August 2025 - Release training code.
 - June 2025 - Release paper, project page, Hugging Face demo and model checkpoint. 
