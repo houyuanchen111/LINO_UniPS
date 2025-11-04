@@ -42,7 +42,7 @@
 - [x] ~~Release checkpoint and inference code.~~
 - [ ] Release `PS-Verse`, the training dataset.
 - [x] ~~Release training code.~~
-- [ ] Adding support for PBR material estimation.
+- [x] ~~Adding support for PBR material estimation.~~
 # 🔛 Get Started 
 ### 💾 Installation
 

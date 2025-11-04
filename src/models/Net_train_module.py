@@ -1,4 +1,5 @@
 import torch
+import os
 from torchmetrics import MeanMetric
 import numpy as np
 import torch
@@ -29,7 +30,8 @@ class Net(nn.Module):
         self.input_dim = 0 # embedding
         self.glc_upsample = GLC_Upsample(256+self.input_dim, num_enc_sab=1, dim_hidden=256, dim_feedforward=1024, use_efficient_attention=True)
         self.glc_aggregation = GLC_Aggregation(256+self.input_dim, num_agg_transformer=2, dim_aggout=384, dim_feedforward=1024, use_efficient_attention=False)
-        state_dict = torch.load("/share/project/cwm/houyuan.chen/UPS_Lightning/relight_trellis_3d/decoder_ema0.9999_step0047000.pt") # load hdri encoder
+        ckpt_path = os.getenv("HDRI_ENCODER_CKPT")
+        state_dict = torch.load(ckpt_path) if ckpt_path and os.path.exists(ckpt_path) else {}
         state_dict = {k[16:]:v for k,v in state_dict.items() if "hdri_cond_model." in k}
         self.img_embedding = nn.Sequential(
             nn.Linear(3,32),
@@ -68,7 +70,7 @@ class Net(nn.Module):
         img_index = make_index_list(Nmax, nImgArray) # Extract objects > 0
         img = img.reshape(-1, img.shape[2], img.shape[3], img.shape[4]) 
         M_enc = M.unsqueeze(1).expand(-1, Nmax, -1, -1, -1).reshape(-1, 1, H, W)
-        data = img * M_enc #不concat mask, 来配合pretrain dino的三通道输入的要求
+        data = img * M_enc
         data = data[img_index==1,:,:,:] # [B * f, 4, H, W]
         glc,light_tokens = self.image_encoder(data, nImgArray, canonical_resolution) # torch.Size([B, N, 256, H, W]) [img, mask]
         env_token = light_tokens[:,:,:,:,0,:]
@@ -117,7 +119,7 @@ class Net(nn.Module):
             gradient_n = Gradient_dec[b, :, :, :].reshape(1, H * W).permute(1,0).to(torch.bfloat16) # [H*W, 1]
             for ids in idset: 
                 o_ids = o_[ids, :, :]
-                glc_ids = glc[target, :, :, :].permute(2,3,0,1).flatten(0,1)[ids,:,:] # 不用grid_sample 
+                glc_ids = glc[target, :, :, :].permute(2,3,0,1).flatten(0,1)[ids,:,:]
                 o_ids_list.append(o_ids)
                 glc_ids_list.append(glc_ids)
                 n_true_list.append(n_true[ids, :])
@@ -131,7 +133,7 @@ class Net(nn.Module):
         x = o_ids + glc_ids
         glc_ids = self.glc_upsample(x)
         x = o_ids + glc_ids
-        x = self.glc_aggregation(x)  #[B*2048, 384] #完全没有关系
+        x = self.glc_aggregation(x)
         x_n, _, _, conf = self.regressor(x, len(ids_batch[0])) # [B, 2048, 3]
         x_n = F.normalize(x_n, p=2, dim=-1)
         mse = self.criterionL2(x_n, n_true)

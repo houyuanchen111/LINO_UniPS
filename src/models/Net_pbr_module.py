@@ -38,9 +38,9 @@ class PredictionHead(nn.Module):
 
     def forward(self, x):
         h = self.regression(x)
-        ret = self.out_layer(h)#两次降维的MLP
+        ret = self.out_layer(h)
         if hasattr(self, 'confi_layer'):
-            confidence = self.confi_layer(h) #最后一层MLP出conf
+            confidence = self.confi_layer(h)
         else:
             confidence = torch.zeros_like(torch.tensor([ret.shape[0], 1])).to(ret.device).to(ret.dtype)
         return ret, torch.sigmoid(confidence) # restrict confidence to [0,1] to compute loss with gradient
@@ -68,8 +68,8 @@ class Regressor(nn.Module):
         OUTPUT: [Num_Pix, 3]"""  
         if x.shape[0] % num_sample_set == 0:
             x_ = x.reshape(-1, num_sample_set, x.shape[1])
-            x_ = self.comm(x_) #sample pixel的spatial attention，分batch           
-            x = x_.reshape(-1, x.shape[1])#这边确实做的也是分batch的聚合
+            x_ = self.comm(x_)
+            x = x_.reshape(-1, x.shape[1])
         else:
             ids = list(range(x.shape[0]))
             num_split = len(ids) // num_sample_set
@@ -223,7 +223,6 @@ class LiNo_UniPS(pl.LightningModule):
        
         obj_name_parts = os.path.dirname(directlist[0][0]).split('/')
         obj_name = obj_name_parts[-1]
-        # 统一处理 alpha 通道用的 mask（HxW 或 HxWx1）
         if mask_gt is not None and mask_gt.ndim == 2:
             mask_gt = mask_gt[:, :, np.newaxis]
      
@@ -239,7 +238,6 @@ class LiNo_UniPS(pl.LightningModule):
             emap_to_save[emap_to_save >= thresh] = thresh
             emap_to_save = emap_to_save / thresh
 
-            # 构造保存 RGBA 的工具
             def _save_rgba(rgb_img, alpha, path, is_gray=False):
                 rgb = np.clip(rgb_img, 0, 1)
                 a = np.clip(alpha, 0, 1)
@@ -253,14 +251,12 @@ class LiNo_UniPS(pl.LightningModule):
                 rgba = np.concatenate([rgb, a], axis=2)
                 plt.imsave(path, rgba)
 
-            # 保存法线预测/GT为 RGBA
             alpha = mask_gt if mask_gt is not None else np.ones_like(nout_to_save[:, :, :1])
             _save_rgba(nout_to_save, alpha, save_path + '/nml_predict.png')
             _save_rgba(nml_gt_to_save, alpha, save_path + '/nml_gt.png')
             plt.imsave(save_path + '/error_map.png', emap_to_save, cmap='jet')
             torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
 
-            # 保存 BRDF 相关图片（若提供）
             if baseColor is not None:
                 alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
                 _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
@@ -298,7 +294,6 @@ class LiNo_UniPS(pl.LightningModule):
                 savemat(mat_save_path + "/" + obj_name + '.mat',  {'Normal_est': normal_map})
             torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
             nout = (nout + 1) / 2 
-            # 保存法线预测为 RGBA（Real/DiLiGenT_100 分支不含 GT/emap）
             alpha = mask_gt if mask_gt is not None else np.ones_like(nout[:, :, :1])
             def _save_rgba(rgb_img, alpha, path, is_gray=False):
                 rgb = np.clip(rgb_img, 0, 1)
@@ -314,7 +309,6 @@ class LiNo_UniPS(pl.LightningModule):
                 plt.imsave(path, rgba)
 
             _save_rgba(nout, alpha, save_path + '/nml_predict.png')
-            # 保存 BRDF 相关图片（若提供）。这些已在后处理映射到 [0,1]
             if baseColor is not None:
                 alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
                 _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
