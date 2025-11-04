@@ -7,20 +7,16 @@ import matplotlib.pyplot as plt
  
 def get_transform_matrix(json_file_path):
         """
-        根据 file_path 从 JSON 文件中查找对应的 transform_matrix。
+        Read a JSON file and return the transform_matrix for the first frame.
 
-        :param json_file_path: JSON 文件路径
-        :param target_file_path: 目标 file_path，用于匹配
-        :return: 4×4 transform_matrix (NumPy 数组) 或 None（如果未找到）
+        :param json_file_path: Path to the JSON file
+        :return: 4x4 transform_matrix (NumPy array) or None if not found
         """
-        # 读取 JSON 文件
-        # name_prefix = target_file_prefix + '_hdri' #光照不同不会影响相机参数，所以只取0
         with open(json_file_path, "r") as f:
             data = json.load(f)
 
-        # 遍历 JSON，查找目标 file_path 的 transform_matrix
         for frame_list in data["frames"]:
-            return np.array(frame_list.get('transform_matrix')) # 遍历所有 HDRI 组
+            return np.array(frame_list.get('transform_matrix'))
             
 def blender_world_normal_2_opengl_camera(normals_world: np.ndarray, c2w: np.ndarray, visualization = False) -> np.ndarray:    
         H, W, C = normals_world.shape

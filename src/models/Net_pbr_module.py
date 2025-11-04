@@ -1,0 +1,471 @@
+import torchvision
+import torch
+from torchmetrics import MeanMetric
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+# from .module.utils import *
+from .utils import decompose_tensors
+from .utils import gauss_filter
+import cv2
+import pytorch_lightning as pl
+from src.models.utils.compute_mae import compute_mae_np
+from datetime import datetime
+import os
+import matplotlib.pyplot as plt
+from .utils.model_utils import make_index_list
+from .module.utils import (
+    ScaleInvariantSpatialLightImageEncoder,
+    GLC_Upsample,
+    GLC_Aggregation,
+    transformer,
+)
+
+class PredictionHead(nn.Module):
+    def __init__(self, dim_input, dim_output, confidence=False):
+        # confidence: if True, output confidence map
+        # confidence: if False, output prediction
+        super(PredictionHead, self).__init__()
+        modules_regression = []
+        modules_regression.append(nn.Linear(dim_input, dim_input//2))
+        modules_regression.append(nn.ReLU())
+        self.out_layer = nn.Linear(dim_input//2, dim_output)
+        if confidence:
+            self.confi_layer = nn.Linear(dim_input//2, 1)
+
+        self.regression = nn.Sequential(*modules_regression)
+
+    def forward(self, x):
+        h = self.regression(x)
+        ret = self.out_layer(h)
+        if hasattr(self, 'confi_layer'):
+            confidence = self.confi_layer(h)
+        else:
+            confidence = torch.zeros_like(torch.tensor([ret.shape[0], 1])).to(ret.device).to(ret.dtype)
+        return ret, torch.sigmoid(confidence) # restrict confidence to [0,1] to compute loss with gradient
+
+class Regressor(nn.Module):
+    def __init__(self, input_nc, num_enc_sab=1, use_efficient_attention=False, dim_feedforward=256, output='normal'):
+        super(Regressor, self).__init__()     
+        # Communication among different samples (Pixel-Sampling Transformer)
+        self.comm = transformer.CommunicationBlock(input_nc, num_enc_sab = num_enc_sab, dim_hidden=input_nc, ln=True, dim_feedforward = dim_feedforward, use_efficient_attention=use_efficient_attention)
+        if output == 'normal':   
+            self.prediction_normal = PredictionHead(input_nc, 3, confidence=True) # Normal prediction
+        self.target = output
+        if output == 'brdf':   
+            self.prediction_base = PredictionHead(input_nc, 3) # No urcainty
+            self.prediction_rough = PredictionHead(input_nc, 1)
+            self.prediction_metal = PredictionHead(input_nc, 1)
+        if output == 'normal_brdf':
+            self.prediction_normal = PredictionHead(input_nc, 3, confidence=True) # Normal prediction
+            self.prediction_base = PredictionHead(input_nc, 3) # No urcainty
+            self.prediction_rough = PredictionHead(input_nc, 1)
+            self.prediction_metal = PredictionHead(input_nc, 1)
+    def forward(self, x, num_sample_set):
+        """Standard forward
+        INPUT: img [Num_Pix, F]
+        OUTPUT: [Num_Pix, 3]"""  
+        if x.shape[0] % num_sample_set == 0:
+            x_ = x.reshape(-1, num_sample_set, x.shape[1])
+            x_ = self.comm(x_)
+            x = x_.reshape(-1, x.shape[1])
+        else:
+            ids = list(range(x.shape[0]))
+            num_split = len(ids) // num_sample_set
+            x_1 = x[:(num_split)*num_sample_set, :].reshape(-1, num_sample_set, x.shape[1])
+            x_1 = self.comm(x_1).reshape(-1, x.shape[1])
+            x_2 = x[(num_split)*num_sample_set:,:].reshape(1, -1, x.shape[1])
+            x_2 = self.comm(x_2).reshape(-1, x.shape[1])
+            x = torch.cat([x_1, x_2], dim=0)
+        if self.target == 'normal':
+            x_n, conf = self.prediction_normal(x.reshape(x.shape[0]//num_sample_set, num_sample_set, -1)) # [B,2048,384]
+            x_brdf = []
+            return x_n, x_brdf, x, conf  
+        if self.target == 'normal_brdf':
+            x_n, conf = self.prediction_normal(x.reshape(x.shape[0]//num_sample_set, num_sample_set, -1)) # [B,2048,384]
+            baseColor, _ = self.prediction_base(x.reshape(x.shape[0]//num_sample_set, num_sample_set, -1))
+            roughness, _ = self.prediction_rough(x.reshape(x.shape[0]//num_sample_set, num_sample_set, -1))
+            metal, _ = self.prediction_metal(x.reshape(x.shape[0]//num_sample_set, num_sample_set, -1))
+            return {
+                'normal': x_n,
+                'baseColor': baseColor,
+                'roughness': roughness,
+                'metallic': metal,
+                'conf': conf}
+
+class LiNo_UniPS(pl.LightningModule):
+    def __init__(self, 
+                 pixel_samples: int = 2048,
+                 task_name :str = None,
+                 brdf :bool = False
+                 ):
+        super().__init__()
+        self.pixel_samples = pixel_samples
+        self.task_name = task_name
+        self.input_dim = 4 
+        self.brdf = brdf
+        if self.brdf:
+            self.target = 'normal_brdf'
+        else:
+            self.target = 'normal'
+        self.image_encoder = ScaleInvariantSpatialLightImageEncoder(self.input_dim, use_efficient_attention=False) 
+        self.input_dim = 0 
+        self.glc_upsample = GLC_Upsample(256+self.input_dim, num_enc_sab=1, dim_hidden=256, dim_feedforward=1024, use_efficient_attention=True)
+        self.glc_aggregation = GLC_Aggregation(256+self.input_dim, num_agg_transformer=2, dim_aggout=384, dim_feedforward=1024, use_efficient_attention=False)
+        self.img_embedding = nn.Sequential(
+            nn.Linear(3,32),
+            nn.LeakyReLU(),
+            nn.Linear(32, 256)
+        )
+        self.regressor = Regressor(384, num_enc_sab=1, use_efficient_attention=True, dim_feedforward=1024,output=self.target)
+        self.test_mae = MeanMetric()
+        self.test_loss = MeanMetric()
+    def on_test_start(self):
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.run_save_dir = f'output/{timestamp}/{self.task_name}/results/'
+        os.makedirs(self.run_save_dir, exist_ok=True)
+        
+    def from_pretrained(self,pth_path):
+        checkpoint = torch.load(pth_path, weights_only=False)
+        state_dict = checkpoint.get('state_dict', checkpoint)
+        def _strip_prefix(sd, prefix):
+            return { (k[len(prefix):] if k.startswith(prefix) else k): v for k, v in sd.items() }
+
+        for prefix in ['module.', 'model.']:
+            if any(k.startswith(prefix) for k in state_dict.keys()):
+                state_dict = _strip_prefix(state_dict, prefix)
+
+        load_result = self.load_state_dict(state_dict, strict=False)
+
+        unexpected = list(getattr(load_result, 'unexpected_keys', []))
+        missing = list(getattr(load_result, 'missing_keys', []))
+        loaded = [k for k in state_dict.keys() if k not in set(unexpected)]
+
+        print(f"Loaded keys ({len(loaded)}):")
+        print(sorted(loaded))
+        print(f"Missing keys ({len(missing)}):")
+        print(sorted(missing))
+        print(f"Unexpected keys ({len(unexpected)}):")
+        print(sorted(unexpected))
+        
+    def _prepare_test_inputs(self, batch):
+        img = batch["imgs"].to(torch.bfloat16)
+        self.numberofImages = img.shape[-1]
+        print("number of test images", self.numberofImages)
+        nml = batch["nml"].to(torch.bfloat16)
+        directlist = batch["directlist"]
+        roi = batch.get("roi",None)
+        roi = roi[0].cpu().numpy()
+        return img, nml,directlist,roi 
+        
+    def _postprocess_prediction(self, nml_predict_raw, nml_gt_raw, roi):
+       
+        h_orig, w_orig, r_s, r_e, c_s, c_e = roi
+        nml_predict = nml_predict_raw.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        nml_predict = cv2.resize(nml_predict, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
+        mask = np.float32(np.abs(1 - np.sqrt(np.sum(nml_predict * nml_predict, axis=2))) < 0.5)
+        nml_predict = np.divide(nml_predict, np.linalg.norm(nml_predict, axis=2, keepdims=True) + 1e-12)
+        nml_predict = nml_predict * mask[:, :, np.newaxis]
+        nout = np.zeros((h_orig, w_orig, 3), np.float32)
+        nout[r_s:r_e, c_s:c_e, :] = nml_predict
+
+        nml_gt = nml_gt_raw.squeeze().permute(1, 2, 0).float().cpu().numpy()
+        mask_gt = np.float32(np.abs(1 - np.sqrt(np.sum(nml_gt * nml_gt, axis=2))) < 0.5)
+        
+        return nout, nml_gt, mask_gt
+
+    def _postprocess_brdf_predictions(self, baseColor_raw, roughness_raw, metal_raw, roi):
+        h_orig, w_orig, r_s, r_e, c_s, c_e = roi
+        # baseColor: [1,3,H,W] -> HxWx3
+        bc = baseColor_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
+        bc = cv2.resize(bc, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
+        bc = np.clip(bc, -1.0, 1.0) * 0.5 + 0.5
+
+        # roughness: [1,1,H,W] -> HxW
+        rough = roughness_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
+        if rough.ndim == 3 and rough.shape[2] == 1:
+            rough = rough[:, :, 0]
+        rough = cv2.resize(rough, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
+        rough = np.clip(rough, -1.0, 1.0) * 0.5 + 0.5
+
+        # metal: [1,1,H,W] -> HxW
+        metal = metal_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
+        if metal.ndim == 3 and metal.shape[2] == 1:
+            metal = metal[:, :, 0]
+        metal = cv2.resize(metal, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
+        metal = np.clip(metal, -1.0, 1.0) * 0.5 + 0.5
+
+        bc_out = np.zeros((h_orig, w_orig, 3), np.float32)
+        bc_out[r_s:r_e, c_s:c_e, :] = bc
+
+        rough_out = np.zeros((h_orig, w_orig), np.float32)
+        rough_out[r_s:r_e, c_s:c_e] = rough
+
+        metal_out = np.zeros((h_orig, w_orig), np.float32)
+        metal_out[r_s:r_e, c_s:c_e] = metal
+
+        return bc_out, rough_out, metal_out
+
+    def _calculate_and_log_metrics(self, nout, nml_gt, mask_gt):
+        mse = torch.nn.MSELoss()(torch.tensor(nout).to(self.device), torch.tensor(nml_gt).to(self.device))
+        
+        mae, emap = compute_mae_np(nout, nml_gt, mask_gt)
+
+        self.test_loss(mse)
+        self.test_mae(mae)
+        self.log("test/mse", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("test/mae", self.test_mae, on_step=False, on_epoch=True, prog_bar=True)
+        
+        return mse, mae, emap
+
+    def _save_test_results(self, nout, nml_gt, emap, img, loss, mae, directlist, save_dir, baseColor=None, roughness=None, metal=None, mask_gt=None):
+       
+        obj_name_parts = os.path.dirname(directlist[0][0]).split('/')
+        obj_name = obj_name_parts[-1]
+        if mask_gt is not None and mask_gt.ndim == 2:
+            mask_gt = mask_gt[:, :, np.newaxis]
+     
+        save_path = os.path.join(save_dir,f'{self.numberofImages}',f'{obj_name}')
+        os.makedirs(save_path, exist_ok=True)
+        print(f"save to: {save_path}")
+        if ("DiLiGenT_100" not in self.task_name) and ("Real" not in self.task_name):
+            nout_to_save = (nout + 1) / 2
+            nml_gt_to_save = (nml_gt + 1) / 2
+            
+            emap_to_save = emap.astype(np.float32).squeeze()
+            thresh = 90
+            emap_to_save[emap_to_save >= thresh] = thresh
+            emap_to_save = emap_to_save / thresh
+
+            def _save_rgba(rgb_img, alpha, path, is_gray=False):
+                rgb = np.clip(rgb_img, 0, 1)
+                a = np.clip(alpha, 0, 1)
+                if is_gray:
+                    if rgb.ndim == 2:
+                        rgb = np.stack([rgb, rgb, rgb], axis=2)
+                    elif rgb.ndim == 3 and rgb.shape[2] == 1:
+                        rgb = np.repeat(rgb, 3, axis=2)
+                if a.ndim == 2:
+                    a = a[:, :, np.newaxis]
+                rgba = np.concatenate([rgb, a], axis=2)
+                plt.imsave(path, rgba)
+
+            alpha = mask_gt if mask_gt is not None else np.ones_like(nout_to_save[:, :, :1])
+            _save_rgba(nout_to_save, alpha, save_path + '/nml_predict.png')
+            _save_rgba(nml_gt_to_save, alpha, save_path + '/nml_gt.png')
+            plt.imsave(save_path + '/error_map.png', emap_to_save, cmap='jet')
+            torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
+
+            if baseColor is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
+                _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
+            if roughness is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(roughness[:, :, np.newaxis])
+                _save_rgba(roughness, alpha, save_path + '/roughness.png', is_gray=True)
+            if metal is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(metal[:, :, np.newaxis])
+                _save_rgba(metal, alpha, save_path + '/metallic.png', is_gray=True)
+
+            fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+            axes[0].imshow(np.clip(nout_to_save, 0, 1))
+            axes[0].set_title('Prediction'); axes[0].axis('off')
+            axes[1].imshow(np.clip(nml_gt_to_save, 0, 1))
+            axes[1].set_title('Ground Truth'); axes[1].axis('off')
+            axes[2].imshow(emap, cmap='jet')
+            axes[2].set_title('Error Map'); axes[2].axis('off')
+            plt.figtext(0.5, 0.02, f'Loss: {loss:.4f} | MAE: {mae:.4f}', ha='center', fontsize=12)
+            plt.tight_layout()
+            plt.savefig(save_path + '/combined.png', dpi=300)
+            plt.close(fig) 
+
+        
+            with open(save_path + '/result.txt', 'w') as f:
+                f.write(f"loss: {loss.item()}\n")
+                f.write(f"mae: {mae}\n")
+                
+            print(f"Done for {obj_name}")
+        else:
+            if "DiLiGenT_100" in self.task_name:
+                from scipy.io import savemat
+                mat_save_path = os.path.join(os.path.dirname(save_path),"submit")
+                os.makedirs(mat_save_path,exist_ok=True)
+                normal_map = nout
+                savemat(mat_save_path + "/" + obj_name + '.mat',  {'Normal_est': normal_map})
+            torchvision.utils.save_image(img.squeeze(0).permute(3,0,1,2), save_path + '/tiled.png')
+            nout = (nout + 1) / 2 
+            alpha = mask_gt if mask_gt is not None else np.ones_like(nout[:, :, :1])
+            def _save_rgba(rgb_img, alpha, path, is_gray=False):
+                rgb = np.clip(rgb_img, 0, 1)
+                a = np.clip(alpha, 0, 1)
+                if is_gray:
+                    if rgb.ndim == 2:
+                        rgb = np.stack([rgb, rgb, rgb], axis=2)
+                    elif rgb.ndim == 3 and rgb.shape[2] == 1:
+                        rgb = np.repeat(rgb, 3, axis=2)
+                if a.ndim == 2:
+                    a = a[:, :, np.newaxis]
+                rgba = np.concatenate([rgb, a], axis=2)
+                plt.imsave(path, rgba)
+
+            _save_rgba(nout, alpha, save_path + '/nml_predict.png')
+            if baseColor is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(baseColor[:, :, :1])
+                _save_rgba(baseColor, alpha, save_path + '/baseColor.png')
+            if roughness is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(roughness[:, :, np.newaxis])
+                _save_rgba(roughness, alpha, save_path + '/roughness.png', is_gray=True)
+            if metal is not None:
+                alpha = mask_gt if mask_gt is not None else np.ones_like(metal[:, :, np.newaxis])
+                _save_rgba(metal, alpha, save_path + '/metallic.png', is_gray=True)
+
+    def test_step(self, batch, batch_idx):
+        
+        img, nml_gt_raw, directlist, roi = self._prepare_test_inputs(batch)
+        
+        nml_predict, baseColor_predict, roughness_predict, metal_predict = self.model_step(batch)
+
+        nout, nml_gt, mask_gt = self._postprocess_prediction(nml_predict, nml_gt_raw, roi)
+        bc_out, rough_out, metal_out = self._postprocess_brdf_predictions(baseColor_predict, roughness_predict, metal_predict, roi)
+        if ("DiLiGenT_100" not in self.task_name) and ("Real" not in self.task_name):
+            loss, mae, emap = self._calculate_and_log_metrics(nout, nml_gt, mask_gt)
+            print(f"{os.path.basename(os.path.dirname(directlist[0][0]))} | MAE: {mae:.4f}")
+            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out,mask_gt=mask_gt)
+        else:
+            emap,loss,mae = None,None,None
+            self._save_test_results(nout, nml_gt, emap, img, loss, mae, directlist, self.run_save_dir, baseColor=bc_out, roughness=rough_out, metal=metal_out,mask_gt=mask_gt)
+
+    def predict_step(self,batch):
+        roi = batch.get("roi",None)
+        nml_predict = self.model_step(batch)
+        roi = roi[0].int().cpu().numpy()
+        h_ = roi[0] 
+        w_ = roi[1] 
+        r_s = roi[2]
+        r_e = roi[3]
+        c_s = roi[4]
+        c_e = roi[5]
+        nml_predict = nml_predict.squeeze(0).permute(1,2,0).float().cpu().numpy()
+        nml_predict = cv2.resize(nml_predict, dsize=(c_e-c_s, r_e-r_s), interpolation=cv2.INTER_AREA)
+        nml_predict = np.divide(nml_predict, np.linalg.norm(nml_predict, axis=2, keepdims=True) + 1.0e-12)
+        mask = np.float32(np.abs(1 - np.sqrt(np.sum(nml_predict * nml_predict, axis=2))) < 0.5)
+        nml_predict = nml_predict * mask[:, :, np.newaxis] 
+        nout = np.zeros((h_, w_, 3), np.float32)
+        nout[r_s:r_e, c_s:c_e,:] = nml_predict
+        mask = batch["mask_original"].squeeze().float().cpu().numpy()[:,:,None]
+
+        return nout*mask
+    def model_step(self,batch):
+        I = batch.get("imgs",None)
+        M = batch.get("mask",None)
+        # roi = batch.get("roi",None)
+        B, C, H, W, Nmax = I.shape
+
+        patch_size = 512               
+        patches_I = decompose_tensors.divide_tensor_spatial(I.permute(0,4,1,2,3).reshape(-1, C, H, W), block_size=patch_size, method='tile_stride')
+        patches_I = patches_I.reshape(B, Nmax, -1, C, patch_size, patch_size).permute(0, 2, 3, 4, 5, 1)
+        sliding_blocks = patches_I.shape[1]
+        patches_M = decompose_tensors.divide_tensor_spatial(M, block_size=patch_size, method='tile_stride')
+        patches_nml = []
+        patches_baseColor = []
+        patches_roughness = []
+        patches_metal = []
+
+        nImgArray = np.array([Nmax])
+        canonical_resolution = 256
+        for k in range(sliding_blocks):
+            """ Image Encoder at Canonical Resolution """
+            print("please wait for a moment, it may take a while")
+            I = patches_I[:, k, :, :, :, :] 
+            M = patches_M[:, k, :, :, :] 
+            B, C, H, W, Nmax = I.shape
+            decoder_resolution = H
+            I_enc = I.permute(0, 4, 1, 2, 3)
+            M_enc = M 
+            img_index = make_index_list(Nmax, nImgArray) 
+            I_enc = I_enc.reshape(-1, I_enc.shape[2], I_enc.shape[3], I_enc.shape[4]) 
+            M_enc = M_enc.unsqueeze(1).expand(-1, Nmax, -1, -1, -1).reshape(-1, 1, H, W) 
+            data = I_enc * M_enc 
+            data = data[img_index==1,:,:,:] 
+            glc,_= self.image_encoder(data, nImgArray, canonical_resolution)
+            I_dec = []
+            M_dec = []
+            img = I.permute(0, 4, 1, 2, 3)            
+            """ Sample Decoder at Original Resokution"""
+            img = img.squeeze()
+            I_dec = F.interpolate(img.float(), size=(decoder_resolution, decoder_resolution), mode='bilinear', align_corners=False).to(torch.bfloat16) 
+            M_dec = F.interpolate(M.float(), size=(decoder_resolution, decoder_resolution), mode='nearest').to(torch.bfloat16)
+            decoder_imgsize = (decoder_resolution, decoder_resolution)
+            C = img.shape[1]
+            H = decoder_imgsize[0]
+            W = decoder_imgsize[1]     
+            nout = torch.zeros(B, H * W, 3).to(I.device)
+            f_scale = decoder_resolution//canonical_resolution 
+            smoothing = gauss_filter.gauss_filter(glc.shape[1], 10 * f_scale+1, 1).to(glc.device, dtype=glc.dtype)
+            chunk_size = 16
+            processed_chunks = []
+            for glc_chunk in torch.split(glc, chunk_size, dim=0):
+                smoothed_chunk = smoothing(glc_chunk)
+                processed_chunks.append(smoothed_chunk)
+            glc = torch.cat(processed_chunks, dim=0) 
+            del M
+            _, _, H, W = I_dec.shape         
+            p = 0
+            baseColor_out = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
+            roughness_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
+            metal_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
+            normal_out = torch.zeros(B, H * W, 3).to(I.device, I.dtype)
+            conf_out = torch.zeros(B, H * W, 1).to(I.device, I.dtype)
+            for b in range(B):
+                target = range(p, p+nImgArray[b])
+                p = p+nImgArray[b]
+                m_ = M_dec[b, :, :, :].reshape(-1, H * W).permute(1,0)        
+                ids = np.nonzero(m_>0)[:,0]  
+                ids = ids[np.random.permutation(len(ids))]
+                ids_shuffle = ids[np.random.permutation(len(ids))]  
+                num_split = len(ids) // self.pixel_samples + 1
+                idset = np.array_split(ids_shuffle, num_split) 
+                o_ = I_dec[target, :, :, :].reshape(nImgArray[b], C, H * W).permute(2,0,1)  
+                for ids in idset: 
+                    o_ids = o_[ids, :, :]
+                    glc_ids = glc[target, :, :, :].permute(2,3,0,1).flatten(0,1)[ids,:,:] 
+                    o_ids = self.img_embedding(o_ids) 
+                    x = o_ids + glc_ids
+                    glc_ids = self.glc_upsample(x)
+                    x = o_ids + glc_ids
+                    x = self.glc_aggregation(x)  
+                    result_dict= self.regressor(x, len(ids))
+                    normal_predict = result_dict['normal'].float()
+                    baseColor_predict = result_dict['baseColor'].float()
+                    roughness_predict = result_dict['roughness'].float()
+                    metal_predict = result_dict['metallic'].float()
+                    conf_predict = result_dict['conf'].float()
+                    normal_predict = F.normalize(normal_predict, p=2, dim=-1)
+                    normal_out[b, ids, :] = normal_predict[b,:,:]
+                    baseColor_out[b, ids, :] = baseColor_predict[b,:,:]
+                    roughness_out[b, ids, :] = roughness_predict[b,:,:]
+                    metal_out[b, ids, :] = metal_predict[b,:,:]
+                    conf_out[b, ids, :] = conf_predict[b,:,:].to(I.dtype)
+                normal_out = normal_out.reshape(B,H,W,3).permute(0,3,1,2)
+                conf_out = conf_out.reshape(B,H,W,1).permute(0,3,1,2)
+                baseColor_out = baseColor_out.reshape(B,H,W,3).permute(0,3,1,2)
+                roughness_out = roughness_out.reshape(B,H,W,1).permute(0,3,1,2)
+                metal_out = metal_out.reshape(B,H,W,1).permute(0,3,1,2)
+                patches_nml.append(normal_out)
+                patches_baseColor.append(baseColor_out)
+                patches_roughness.append(roughness_out)
+                patches_metal.append(metal_out)
+
+        patches_nml = torch.stack(patches_nml, dim=1)
+        patches_baseColor = torch.stack(patches_baseColor, dim=1)
+        patches_roughness = torch.stack(patches_roughness, dim=1)
+        patches_metal = torch.stack(patches_metal, dim=1)
+        merged_tensor_nml = decompose_tensors.merge_tensor_spatial(patches_nml.permute(1,0,2,3,4), method='tile_stride')
+        merged_tensor_baseColor = decompose_tensors.merge_tensor_spatial(patches_baseColor.permute(1,0,2,3,4), method='tile_stride')
+        merged_tensor_roughness = decompose_tensors.merge_tensor_spatial(patches_roughness.permute(1,0,2,3,4), method='tile_stride')
+        merged_tensor_metal = decompose_tensors.merge_tensor_spatial(patches_metal.permute(1,0,2,3,4), method='tile_stride')
+        return merged_tensor_nml, merged_tensor_baseColor, merged_tensor_roughness, merged_tensor_metal
+
+    def forward(self, batch):
+        return self.predict_step(batch=batch)
+        

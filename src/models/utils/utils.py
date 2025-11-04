@@ -110,10 +110,7 @@ def sobel_edge_map(img_tensor: torch.Tensor):
     # input : [B, C, H, W]
     grad = kornia.filters.Sobel()(img_tensor)
 
-    # 拆出 dx 和 dy
     dx = grad[:, 0::2, :, :]  # (B, C, H, W)
     dy = grad[:, 1::2, :, :]  # (B, C, H, W)
-
-    # 勾股定理计算梯度幅值
-    grad_magnitude = torch.sqrt(dx ** 2 + dy ** 2 + 1e-6)  # 加上1e-6防止sqrt(0)
+    grad_magnitude = torch.sqrt(dx ** 2 + dy ** 2 + 1e-6)
     return grad_magnitude.mean(dim=1, keepdim=True) 

@@ -119,28 +119,7 @@ class DPTHead(nn.Module):
             )
             conv2_in_channels = head_features_1 // 2
 
-            # self.scratch.output_conv2 = nn.Sequential(
-            #     nn.Conv2d(conv2_in_channels, head_features_2, kernel_size=3, stride=1, padding=1),
-            #     nn.ReLU(inplace=True),
-            #     nn.Conv2d(head_features_2, output_dim, kernel_size=1, stride=1, padding=0),
-            # )
-            # self.scratch.output_conv3是为了normal estimation而修改 
-            # self.scratch.output_conv3 = nn.Sequential(
-            #      # 第1层 3x3: 从 in_channels=1280 -> 512
-            # nn.Conv2d(conv2_in_channels, 512, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(inplace=True),
-
-            # # 第2层 3x3: 512 -> 512
-            # nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(inplace=True),
-
-            # # 第3层 3x3: 512 -> 256
-            # nn.Conv2d(512, head_features_2, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(inplace=True),
-
-            # # 最后一层 1x1: 256 -> 4
-            # nn.Conv2d(head_features_2, output_dim, kernel_size=1, stride=1, padding=0),
-            # )
+            
     def make_output_conv(
             self,
             in_channels: int,
@@ -152,19 +131,12 @@ class DPTHead(nn.Module):
         conv_mid3 = in_channels // 4
         
         layers = nn.Sequential(
-            # 第1层 3x3: 从 in_channels -> conv_mid1
             nn.Conv2d(in_channels, conv_mid1, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-
-            # 第2层 3x3: conv_mid1 -> conv_mid2
             nn.Conv2d(conv_mid1, conv_mid2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-
-            # 第3层 3x3: conv_mid2 -> conv_mid3
             nn.Conv2d(conv_mid2, conv_mid3, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-
-            # 第4层 1x1: conv_mid3 -> output_dim
             nn.Conv2d(conv_mid3, output_dim, kernel_size=1, stride=1, padding=0),
         ).cuda().to(torch.bfloat16)
 
@@ -195,7 +167,7 @@ class DPTHead(nn.Module):
 
         # If frames_chunk_size is not specified or greater than S, process all frames at once
         if frames_chunk_size is None or frames_chunk_size >= S:
-            return self._forward_impl(aggregated_tokens_list, images, patch_start_idx) #frames_chunk_size:一次最多处理几帧
+            return self._forward_impl(aggregated_tokens_list, images, patch_start_idx)
 
         # Otherwise, process frames in chunks to manage memory usage
         assert frames_chunk_size > 0
@@ -252,16 +224,14 @@ class DPTHead(nn.Module):
         if frames_start_idx is not None and frames_end_idx is not None:
             images = images[:, frames_start_idx:frames_end_idx].contiguous()
 
-        B, S, _, H, W = images.shape#就是图片
+        B, S, _, H, W = images.shape
 
         patch_h, patch_w = H // self.patch_size, W // self.patch_size
 
         out = []
         dpt_idx = 0
-        # aggregated_tokens_list: [24,B,3,H*W//14 + 4,C] 24是AABlock的个数
-        for layer_idx in self.intermediate_layer_idx:# 这段代码需要借鉴过来，相当于用transformer多层特征（相同尺寸）模仿conv的mutil-scale特征，有意思
+        for layer_idx in self.intermediate_layer_idx:
             x = aggregated_tokens_list[layer_idx][:, :, patch_start_idx:] #[B,3,H*W//14,C]
-            # 为什么只选[4,11,17,23]这几个layer_idx呢？
             # Select frames if processing a chunk
             if frames_start_idx is not None and frames_end_idx is not None:
                 x = x[:, frames_start_idx:frames_end_idx]
@@ -277,7 +247,7 @@ class DPTHead(nn.Module):
                 x = self._apply_pos_embed(x, W, H).to(torch.bfloat16)
             x = self.resize_layers[dpt_idx](x)
 
-            out.append(x) #一个feature list
+            out.append(x)
             dpt_idx += 1
 
         # Fuse features from multiple layers.
@@ -301,7 +271,6 @@ class DPTHead(nn.Module):
         in_channels = out.shape[1]
         out = self.make_output_conv(in_channels, output_dim=4)(out) # B S 4 H W
         preds, conf = activate_head(out, activation='linear', conf_activation=self.conf_activation) 
-        # preds默认使用的是inv_log(x) = exp(x) - 1
         preds = preds.permute(0, 3, 1, 2) # B C,H,W
         preds = F.normalize(preds, dim=1, p=2, eps=1e-12) # B 1 H W
         # conf[:, None, ...] # B 1 H W

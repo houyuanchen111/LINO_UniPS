@@ -7,7 +7,7 @@ from src.data import TestData
 from src.data import DemoData
 dependencies = ['torch', 'pytorch_lightning', 'numpy']
 
-DEFAULT_MODEL_URL = "https://huggingface.co/houyuanchen/lino/resolve/main/lino.pth"  
+DEFAULT_MODEL_URL = os.getenv("LINO_MODEL_URL", "")  
 
 def lino_unips(pretrained=True, task_name="DiLiGenT", **kwargs):
     model = LiNo_UniPS(task_name=task_name, **kwargs)
@@ -17,7 +17,7 @@ def lino_unips(pretrained=True, task_name="DiLiGenT", **kwargs):
                 DEFAULT_MODEL_URL,
                 progress=True
             )
-            model.load_state_dict(state_dict) #
+            model.load_state_dict(state_dict)
             model.eval()
             print("load lino_unips successfully")
         except Exception as e:
@@ -54,7 +54,8 @@ def _load_state_dict(local_file_path: Optional[str] = None):
         # Load state_dict from local file
         state_dict = torch.load(local_file_path, weights_only=False, map_location=torch.device("cpu"))
     else:
-        # Load state_dict from the default URL
+        if not DEFAULT_MODEL_URL:
+            raise ValueError("LINO_MODEL_URL environment variable is not set; please provide a local_file_path or set LINO_MODEL_URL.")
         state_dict = torch.hub.load_state_dict_from_url(DEFAULT_MODEL_URL, progress=True, map_location=torch.device("cpu"))
 
     return state_dict
@@ -71,7 +72,6 @@ class Predictor:
     def predict(self, input_imgs_list, input_mask):
         demodata = load_data(input_imgs_list, input_mask)
         data = demodata[0]
-        # 将数据 batch 化
         for key in data:
             if isinstance(data[key], np.ndarray):
                 data[key] = torch.tensor(data[key], device=self.device, dtype=self.dtype)[None, ...]  # Add None to keep the batch dimension
@@ -86,29 +86,4 @@ class Predictor:
             output = self.model(data)
         return output
     
-
-def _test_run():
-    # Example usage
-    from PIL import Image
-    input_imgs_paths_list = [
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_1.png", 
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_2.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_3.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_4.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_5.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_6.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_7.png",
-            "/share/project/cwm/hong.li/code/unips/LINO_UniPS/demo/basket/L_8.png",
-        ]
     
-    input_imgs_list = [(np.array(Image.open(img_path)), None) for img_path in input_imgs_paths_list]
-    
-    input_mask = None
-    
-    predictor = LINO(local_file_path="/share/project/cwm/hong.li/code/unips/LINO_UniPS/weights/lino/lino.pth")
-    result = predictor.predict(input_imgs_list, input_mask)
-    
-    print("Prediction result:", result)
-
-if __name__ == "__main__":
-    _test_run()

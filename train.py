@@ -32,7 +32,6 @@ def train_model(args):
         num_workers=args.num_workers,
         pin_memory=True
     )
-    # 初始化模型
     net = Net(
         pixel_samples=args.pixel_samples,
         output="normal",  
@@ -55,7 +54,6 @@ def train_model(args):
         gamma=args.gamma
     )
     
-    # 配置训练器
     trainer = pl.Trainer(
         accelerator="auto",
         devices=args.devices,
@@ -84,7 +82,6 @@ def train_model(args):
         )
     )
     
-    # 开始训练
     trainer.fit(model, train_loader, val_loader)
 
 if __name__ == "__main__":

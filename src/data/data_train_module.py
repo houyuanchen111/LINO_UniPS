@@ -26,7 +26,7 @@ class TrainData(Dataset):
             ratio_train: float = 0.999, 
             ratio_val: float = 0.001,
         ):
-        self.hdri_root = "/share/project/public_data/rendering_data/hdri_related/hdri_512" 
+        self.hdri_root = None
         self.mode = mode
         self.image_size = 512
         self.data_root = data_root 

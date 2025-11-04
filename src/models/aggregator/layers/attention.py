@@ -75,18 +75,6 @@ class Attention(nn.Module):
             attn = attn.softmax(dim=-1)
             attn = self.attn_drop(attn)
             x = attn @ v
-        # attn_vis = ((q * self.scale) @ k.transpose(-2, -1)).softmax(dim=-1)
-        # import matplotlib.pyplot as plt
-        # for i in range (attn_vis.shape[0]):
-        #     for j in range (attn_vis.shape[1]):
-        #         for k in range(7):
-        #             _ = attn_vis[i][j][k][7:].reshape(1,1,32,32)
-        #             _ = F.interpolate(_, size=(256, 256), mode='nearest')
-        #             _ = _.squeeze().cpu().detach().numpy()
-        #             os.makedirs("/share/project/cwm/houyuan.chen/UPS_Lightning/plot/results/Net2_v15_epoch5_vis_for_goblet_attn_map/", exist_ok=True)
-        #             plt.imsave(f"/share/project/cwm/houyuan.chen/UPS_Lightning/plot/results/Net2_v15_epoch5_vis_for_goblet_attn_map/attn_vis_img_{i}_head_{j}_token_{k}.png", _)
-
-
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
