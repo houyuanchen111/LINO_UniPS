@@ -162,7 +162,7 @@ class LiNo_UniPS(pl.LightningModule):
     def _postprocess_prediction(self, nml_predict_raw, nml_gt_raw, roi):
        
         h_orig, w_orig, r_s, r_e, c_s, c_e = roi
-        nml_predict = nml_predict_raw.squeeze().permute(1, 2, 0).cpu().numpy()
+        nml_predict = nml_predict_raw.squeeze(0).permute(1, 2, 0).cpu().numpy()
         nml_predict = cv2.resize(nml_predict, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
         mask = np.float32(np.abs(1 - np.sqrt(np.sum(nml_predict * nml_predict, axis=2))) < 0.5)
         nml_predict = np.divide(nml_predict, np.linalg.norm(nml_predict, axis=2, keepdims=True) + 1e-12)
@@ -178,7 +178,7 @@ class LiNo_UniPS(pl.LightningModule):
     def _postprocess_brdf_predictions(self, baseColor_raw, roughness_raw, metal_raw, roi):
         h_orig, w_orig, r_s, r_e, c_s, c_e = roi
         # baseColor: [1,3,H,W] -> HxWx3
-        bc = baseColor_raw.squeeze().permute(1, 2, 0).float().cpu().numpy()
+        bc = baseColor_raw.squeeze(0).permute(1, 2, 0).float().cpu().numpy()
         bc = cv2.resize(bc, dsize=(c_e - c_s, r_e - r_s), interpolation=cv2.INTER_AREA)
         bc = np.clip(bc, -1.0, 1.0) * 0.5 + 0.5
 
@@ -351,7 +351,7 @@ class LiNo_UniPS(pl.LightningModule):
         r_e = roi[3]
         c_s = roi[4]
         c_e = roi[5]
-        nml_predict = nml_predict.squeeze().permute(1,2,0).float().cpu().numpy()
+        nml_predict = nml_predict.squeeze(0).permute(1,2,0).float().cpu().numpy()
         nml_predict = cv2.resize(nml_predict, dsize=(c_e-c_s, r_e-r_s), interpolation=cv2.INTER_AREA)
         nml_predict = np.divide(nml_predict, np.linalg.norm(nml_predict, axis=2, keepdims=True) + 1.0e-12)
         mask = np.float32(np.abs(1 - np.sqrt(np.sum(nml_predict * nml_predict, axis=2))) < 0.5)

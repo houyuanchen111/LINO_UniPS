@@ -22,13 +22,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_root", 
         type=str, 
-        default="data/LUCES/data/",
+        default="./data/DiLiGenT",
         help="Root directory of the dataset"
     )
     parser.add_argument(
         "--num_images", 
         type=int, 
-        default=32,
+        default=16,
         help="Number of images to process"
     )
     parser.add_argument(
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     testdata = TestData(args.data_root, args.num_images)
     lino = LiNo_UniPS_PBR(task_name=args.task_name, brdf=True)
-    lino.from_pretrained("/share/project/cwm/houyuan.chen/UPS_Lightning/ckpt/Net2_v15_demo_v1_pbr/epoch_008.pth")
+    lino.from_pretrained("./ckpt/lino_pbr.pth")
     predict()
 
 
